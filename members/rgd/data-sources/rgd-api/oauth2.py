@@ -19,7 +19,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 # In-memory storage for registered clients
 # In production, this would be in a database
 REGISTERED_CLIENTS: Dict[str, str] = {
-    "client_app_1": "secret_key_123",
+    "2oIRGWpHDjmTPqDo8tOJCu2DwANp": "xJclnZNorKGwLJPpKQRAtqK1ZtJh",
     "client_app_2": "secret_key_456",
     "test_client": "test_secret",
 }
