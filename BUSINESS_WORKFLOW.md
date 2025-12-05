@@ -560,12 +560,11 @@ If NDX supports granular consent, Sarah could grant access to some fields but no
 
 After understanding this workflow:
 
-[//]: # (1. **Explore the API**: See [API Documentation]&#40;README.md#api-documentation&#41; for query examples)
-1. **Understand the architecture**: Read the [Technical Architecture](ARCHITECTURE.md) section
-2. **Build your own consumer**: Learn how to integrate applications with NDX
+1. **Try it yourself**: Follow the [Setup Guide](SETUP.md) to run the system locally
+2. **Explore the API**: See [API Documentation](README.md#api-documentation) for query examples
+3. **Understand the architecture**: Read the [Technical Architecture](README.md#technical-architecture) section
+4. **Build your own consumer**: Learn how to integrate applications with NDX
 
 ---
 
-For more information, return to the [main README](README.md) 
-
-[//]: # (or check out the [Setup Guide]&#40;SETUP.md&#41; to get started.)
+For more information, return to the [main README](README.md) or check out the [Setup Guide](SETUP.md) to get started.

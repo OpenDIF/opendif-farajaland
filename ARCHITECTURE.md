@@ -972,13 +972,11 @@ Data stores (persistent volumes)
 
 After understanding the architecture:
 
-[//]: # (1. **Try it locally**: Follow the [Setup Guide]&#40;SETUP.md&#41;)
-1. **Review the workflow**: Check the [Business Workflow](BUSINESS_WORKFLOW.md)
-2. **Deploy to production**: Plan your deployment architecture
-
-[//]: # (2. **Explore the API**: See [API Documentation]&#40;README.md#api-documentation&#41;)
-
-[//]: # (3. **Add a data source**: Follow the [Development Guide]&#40;README.md#development&#41;)
+1. **Try it locally**: Follow the [Setup Guide](SETUP.md)
+2. **Review the workflow**: Check the [Business Workflow](BUSINESS_WORKFLOW.md)
+3. **Explore the API**: See [API Documentation](README.md#api-documentation)
+4. **Add a data source**: Follow the [Development Guide](README.md#development)
+5. **Deploy to production**: Plan your deployment architecture
 
 ---
 

@@ -1,0 +1,50 @@
+{
+  "environment": "local",
+  "ceUrl": "http://consent-engine:8081",
+  "pdpUrl": "http://policy-decision-point:8082",
+  "providers": [
+    {
+      "providerKey": "drp",
+      "schemaId": "drp-schema-v1",
+      "providerUrl": "http://host.docker.internal:9091",
+      "auth": {
+        "type": "apiKey",
+        "apiKeyName": "Choreo-API-Key",
+        "apiKeyValue": "chk_eyJjb25uZWN0aW9uLWlkIjoiMDFmMGFiMWMtMDZjYy0xYmJlLWE1MTUtODU1ZTA5NzEwMWNmIiwia2V5Ijoiajg3cDQ0MGFxNHFiZ3g2aWJuMjJrYW4zcGNnbmZ5cHp2NnR6M3Z2dmt6cGZlcjVmMDQ5byJ9cZY3Ew"
+      }
+    },
+    {
+      "providerKey": "rgd",
+      "schemaId": "rgd-schema-v1",
+      "providerUrl": "http://host.docker.internal:8080/graphql",
+      "auth": {
+        "type": "oauth2",
+        "tokenUrl": "http://host.docker.internal:8080/oauth/token",
+        "clientId": "2oIRGWpHDjmTPqDo8tOJCu2DwANp",
+        "clientSecret": "xJclnZNorKGwLJPpKQRAtqK1ZtJh"
+      }
+    }
+  ],
+  "argMappings": [
+    {
+      "providerKey": "drp",
+      "schemaId": "drp-schema-v1",
+      "targetArgName": "nic",
+      "sourceArgPath": "personInfo-nic",
+      "targetArgPath": "person"
+    },
+    {
+      "providerKey": "rgd",
+      "targetArgName": "nic",
+      "schemaId": "abc-212",
+      "sourceArgPath": "personInfo-nic",
+      "targetArgPath": "getPersonInfo"
+    },
+    {
+      "providerKey": "dmt",
+      "targetArgName": "ownerNic",
+      "sourceArgPath": "personInfo-nic",
+      "targetArgPath": "vehicle.getVehicleInfos"
+    }
+  ]
+}
