@@ -38,16 +38,16 @@ With **OpenDIF Farajaland's NDX (National Data Exchange)** implementation, the p
 1. **Sarah logs into the DIE passport application**
 2. The DIE application makes a **first data request** to NDX with a GraphQL query for Sarah's information
 3. **NDX checks for consent** - since Sarah hasn't granted consent yet, NDX doesn't return the data. Instead, it returns a response containing:
-    - A **consent portal URL** where Sarah needs to grant permission
-    - Details of what data is being requested
-    - Which data providers will be accessed (RGD, DRP)
+   - A **consent portal URL** where Sarah needs to grant permission
+   - Details of what data is being requested
+   - Which data providers will be accessed (RGD, DRP)
 4. The **passport application redirects Sarah** to the consent portal URL
 5. Sarah **authenticates using her FUDI credentials** (Farajaland's national digital identity)
 6. The Consent Portal shows Sarah exactly what data will be shared:
-    - Full name, birth date, and birth place (from RGD)
-    - Current address and profession (from DRP)
-    - Who is requesting the data (DIE)
-    - For what purpose (passport application)
+   - Full name, birth date, and birth place (from RGD)
+   - Current address and profession (from DRP)
+   - Who is requesting the data (DIE)
+   - For what purpose (passport application)
 7. **Sarah grants consent** - she is the data owner, and the departments (RGD, DRP) are merely custodians
 8. After granting consent, Sarah is **redirected back to the passport application**
 9. The DIE application makes a **second data request** to NDX with the same GraphQL query
@@ -122,6 +122,21 @@ The guide covers:
 - Value proposition for citizens, consumers, and providers
 
 **Quick Summary**: The workflow demonstrates the two-request pattern where the first request triggers consent, and the second request (after consent is granted) returns the federated data from multiple sources.
+
+---
+
+## 🚀 Ready to Try It?
+
+If you're excited to see OpenDIF Farajaland in action, head over to our **[Setup Guide](SETUP.md)** to get started in minutes!
+
+The setup guide will walk you through:
+- Installing prerequisites
+- Running the automated `./init.sh` script
+- Verifying your local deployment
+- Testing the GraphQL API
+- Troubleshooting common issues
+
+**Quick Start:** Simply run `./init.sh` and watch the entire ecosystem spin up automatically!
 
 ---
 
