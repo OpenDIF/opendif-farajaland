@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NDX_DIR="${SCRIPT_DIR}/ndx"
+# NDX_DIR="${SCRIPT_DIR}/ndx"  <-- Removed as we are now in root
 MEMBERS_DIR="${SCRIPT_DIR}/members"
 
 # Function to print colored messages
@@ -61,7 +61,7 @@ cleanup() {
 
     # Stop docker-compose services
     print_info "Stopping NDX infrastructure services..."
-    cd "$NDX_DIR" && docker-compose down
+    docker-compose down
 
     print_success "All services stopped"
     exit $exit_code
@@ -83,10 +83,10 @@ echo ""
 
 # Start NDX infrastructure services
 print_info "Starting NDX infrastructure services (docker-compose)..."
-cd "$NDX_DIR"
+# cd "$NDX_DIR" <-- Removed
 
 if [ ! -f "docker-compose.yml" ]; then
-    print_error "docker-compose.yml not found in ndx directory"
+    print_error "docker-compose.yml not found in root directory"
     exit 1
 fi
 
