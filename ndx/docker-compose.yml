@@ -1,0 +1,188 @@
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.7
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    environment:
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER=default=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_NAME=default
+    networks:
+      - exchange-network
+
+  api-gateway:
+    depends_on:
+      - etcd
+    image: apache/apisix:latest
+    ports:
+      - "9080:9080"
+      - "9180:9180"
+    networks:
+      - exchange-network
+    volumes:
+      - ./config/apisix/conf.yaml:/usr/local/apisix/conf/config.yaml
+
+  wso2is:
+    image: wso2/wso2is:7.2.0   # replace with your desired version
+    container_name: wso2is
+    ports:
+      - "9443:9443"   # HTTPS / admin console
+      - "9763:9763"   # HTTP (optional)
+    environment:
+      - TZ=Asia/Colombo       # optional, set timezone
+      - SERVER_HOSTNAME=wso2is
+    volumes:
+      - ./config/wso2is/deployment.toml:/home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
+      - ./config/wso2is/wso2carbon.p12:/home/wso2is-7.2.0/repository/resources/security/wso2carbon.p12
+#      - ./config/wso2is/postgresql-42.7.8.jar:/home/wso2carbon/wso2is-7.2.0/repository/components/lib/postgresql-42.7.8.jar
+    healthcheck:
+      test: [ "CMD", "curl", "-k", "-f", "https://localhost:9443/oauth2/token/.well-known/openid-configuration" ]
+      interval: 5s
+      timeout: 120s
+      start_period: 100s
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
+  policy-decision-point:
+    depends_on:
+      - postgres
+    image: ghcr.io/opendif/opendif-mvp/policy-decision-point:latest
+    platform: linux/amd64
+    container_name: pdp-${ENVIRONMENT:-local}
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-local}
+      - PORT=8082
+      - HOST=${HOST:-0.0.0.0}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-text}
+      - JWT_SECRET=${JWT_SECRET:-local-secret-key}
+      - CORS=${CORS:-true}
+      - RATE_LIMIT=${RATE_LIMIT:-1000}
+      # Database configuration
+      - CHOREO_OPENDIF_DATABASE_HOSTNAME=${PDP_DB_HOST:-localhost}
+      - CHOREO_OPENDIF_DATABASE_PORT=${PDP_DB_PORT:-5432}
+      - CHOREO_OPENDIF_DATABASE_USERNAME=${PDP_DB_USERNAME:-postgres}
+      - CHOREO_OPENDIF_DATABASE_PASSWORD=${PDP_DB_PASSWORD:-password}
+      - CHOREO_OPENDIF_DATABASE_DATABASENAME=${PDP_DB_NAME:-testdb}
+      - DB_SSLMODE=${DB_SSLMODE:-require}
+      - RUN_MIGRATION=${RUN_MIGRATION:-false}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
+  consent-engine:
+    depends_on:
+      - postgres
+    image: ghcr.io/opendif/opendif-mvp/consent-engine:latest
+    platform: linux/amd64
+    container_name: ce-${ENVIRONMENT:-local}
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-local}
+      - PORT=8081
+      - HOST=${HOST:-0.0.0.0}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-text}
+      - JWT_SECRET=${JWT_SECRET:-local-secret-key}
+      - CORS=${CORS:-true}
+      - RATE_LIMIT=${RATE_LIMIT:-1000}
+      # Database configuration
+      - CHOREO_DB_CE_HOSTNAME=${CE_DB_HOST:-localhost}
+      - CHOREO_DB_CE_PORT=${CE_DB_PORT:-5432}
+      - CHOREO_DB_CE_USERNAME=${CE_DB_USERNAME:-postgres}
+      - CHOREO_DB_CE_PASSWORD=${CE_DB_PASSWORD:-password}
+      - CHOREO_DB_CE_DATABASENAME=${CE_DB_NAME:-consent_engine}
+      - DB_SSLMODE=${DB_SSLMODE:-require}
+      - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-25}
+      - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-5}
+      - DB_CONN_MAX_LIFETIME=${DB_CONN_MAX_LIFETIME:-1h}
+      - DB_CONN_MAX_IDLE_TIME=${DB_CONN_MAX_IDLE_TIME:-30m}
+      - DB_QUERY_TIMEOUT=${DB_QUERY_TIMEOUT:-30s}
+      - DB_CONNECT_TIMEOUT=${DB_CONNECT_TIMEOUT:-10s}
+      - DB_RETRY_ATTEMPTS=${DB_RETRY_ATTEMPTS:-3}
+      - DB_RETRY_DELAY=${DB_RETRY_DELAY:-1s}
+      - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
+      - ASGARDEO_ORG_NAME=${IDP_ORG_NAME:-lankasoftwarefoundation}
+      - ASGARDEO_ISSUER=${IDP_ISSUER:-https://api.asgardeo.io/t/lankasoftwarefoundation/oauth2/token}
+      - ASGARDEO_AUDIENCE=${IDP_AUDIENCE:-Mpjt5VUqDPL8iVByyFcMDregz6Ea}
+      - ASGARDEO_JWKS_URL=${IDP_JWKS_URL:-http://wso2is:9443/oauth2/jwks}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
+  consent-portal:
+    depends_on:
+      - postgres
+      - wso2is
+    image: mushrafmim/opendif-consent-portal:latest
+    ports:
+      - "${PORT_CP:-5173}:80"
+    environment:
+      - VITE_API_URL=http://localhost:9080
+      - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
+      - VITE_BASE_URL=${IDP_BASE_URL:-https://localhost:9443}
+      - VITE_SCOPE=openid profile email
+      - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
+      - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
+
+  orchestration-engine:
+    image: ghcr.io/opendif/opendif-mvp/orchestration-engine:latest
+    platform: linux/amd64
+    container_name: oe-${ENVIRONMENT:-local}
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-local}
+      - PORT=4000
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-text}
+      - CONFIG_PATH=${CONFIG_PATH:-./config.json}
+    volumes:
+      - ${OE_CONFIG_PATH}:/app/config.json:ro
+      - ${OE_SCHEMA_PATH}:/app/schema.graphql:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
+  postgres:
+    image: postgres:15
+    container_name: pg-${ENVIRONMENT:-local}
+    environment:
+      POSTGRES_USER: ${DB_USER:-exchange}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-exchange}
+      POSTGRES_DB: ${DB_NAME:-exchange_service}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./opendif_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    networks:
+      - exchange-network
+    restart: unless-stopped
+
+networks:
+  exchange-network:
+    driver: bridge
+
+volumes:
+  pg_data:

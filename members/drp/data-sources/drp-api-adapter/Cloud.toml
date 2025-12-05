@@ -1,0 +1,4 @@
+[container.image]
+repository="mushrafmim"
+name="drp-api-adapter"
+tag="latest"
