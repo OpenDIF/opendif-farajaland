@@ -46,17 +46,20 @@ IMAGE_TAG="${IMAGE_TAG:-latest}"
 DRP_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api:${IMAGE_TAG}"
 DRP_ADAPTER_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api-adapter:${IMAGE_TAG}"
 RGD_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/rgd-api:${IMAGE_TAG}"
+DIE_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/online-passport-app:${IMAGE_TAG}"
 
 # Container names
 DRP_CONTAINER="drp-api"
 DRP_ADAPTER_CONTAINER="drp-adapter"
 RGD_CONTAINER="rgd-api"
+DIE_CONTAINER="online-passport-app"
 
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRP_DIR="${SCRIPT_DIR}/drp/data-sources/drp-api"
 DRP_ADAPTER_DIR="${SCRIPT_DIR}/drp/data-sources/drp-api-adapter"
 RGD_DIR="${SCRIPT_DIR}/rgd/data-sources/rgd-api"
+DIE_DIR="${SCRIPT_DIR}/die/applications/online-passport-app"
 
 # Function to print colored messages
 print_info() {
@@ -265,6 +268,37 @@ run_rgd() {
     print_info "Container name: $RGD_CONTAINER"
 }
 
+# Function to run DIE service
+run_die() {
+    local skip_pull=${1:-false}
+
+    print_info "Starting Online Passport App (DIE)..."
+
+    cleanup_container "$DIE_CONTAINER"
+
+    if [ "$skip_pull" = false ]; then
+        if ! pull_image "$DIE_IMAGE"; then
+            print_warning "Failed to pull image. Checking if local image exists..."
+            if ! docker image inspect "$DIE_IMAGE" &> /dev/null; then
+                print_error "Image not found locally or in registry: $DIE_IMAGE"
+                print_info "Try running with 'build' command to build images locally"
+                return 1
+            fi
+        fi
+    fi
+
+    print_step "Starting Online Passport App container..."
+    docker run -d \
+        --name "$DIE_CONTAINER" \
+        -p 3000:3000 \
+        --restart unless-stopped \
+        "$DIE_IMAGE"
+
+    STARTED_CONTAINERS+=("$DIE_CONTAINER")
+    print_success "Online Passport App started at http://localhost:3000"
+    print_info "Container name: $DIE_CONTAINER"
+}
+
 # Function to build all services locally
 build_all() {
     print_info "Building all services locally..."
@@ -292,6 +326,13 @@ build_all() {
         print_error "Failed to build RGD API"
     fi
 
+    # Build DIE
+    print_info "=== Building Online Passport App (DIE) ==="
+    if ! build_image "Online Passport App" "$DIE_DIR" "$DIE_IMAGE"; then
+        build_success=false
+        print_error "Failed to build Online Passport App"
+    fi
+
     if [ "$build_success" = true ]; then
         print_success "All images built successfully!"
         print_info "You can now run services with: $0 all"
@@ -314,6 +355,8 @@ run_all() {
     run_drp_adapter "$skip_pull"
     sleep 2
     run_rgd "$skip_pull"
+    sleep 2
+    run_die "$skip_pull"
 
     echo ""
     print_success "All services started successfully!"
@@ -324,14 +367,16 @@ run_all() {
     print_info "  RGD API:             http://localhost:8080"
     print_info "  RGD GraphQL:         http://localhost:8080/graphql"
     print_info "  RGD API Docs:        http://localhost:8080/docs"
+    print_info "  Online Passport App: http://localhost:3000"
     echo ""
     print_info "To view logs:"
     print_info "  docker logs -f $DRP_CONTAINER"
     print_info "  docker logs -f $DRP_ADAPTER_CONTAINER"
     print_info "  docker logs -f $RGD_CONTAINER"
+    print_info "  docker logs -f $DIE_CONTAINER"
     echo ""
     print_info "To stop all services:"
-    print_info "  docker stop $DRP_CONTAINER $DRP_ADAPTER_CONTAINER $RGD_CONTAINER"
+    print_info "  docker stop $DRP_CONTAINER $DRP_ADAPTER_CONTAINER $RGD_CONTAINER $DIE_CONTAINER"
 }
 
 # Function to stop all services
@@ -341,6 +386,7 @@ stop_all() {
     cleanup_container "$DRP_CONTAINER"
     cleanup_container "$DRP_ADAPTER_CONTAINER"
     cleanup_container "$RGD_CONTAINER"
+    cleanup_container "$DIE_CONTAINER"
 
     print_success "All services stopped"
 }
@@ -350,7 +396,7 @@ show_status() {
     print_info "Service Status:"
     echo ""
 
-    for container in "$DRP_CONTAINER" "$DRP_ADAPTER_CONTAINER" "$RGD_CONTAINER"; do
+    for container in "$DRP_CONTAINER" "$DRP_ADAPTER_CONTAINER" "$RGD_CONTAINER" "$DIE_CONTAINER"; do
         if docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
             local status=$(docker inspect -f '{{.State.Status}}' "$container")
             local uptime=$(docker inspect -f '{{.State.StartedAt}}' "$container")
@@ -370,6 +416,7 @@ Commands:
   drp           Pull and run only the DRP API service (port 9090)
   adapter       Pull and run only the DRP API Adapter (GraphQL, port 9091)
   rgd           Pull and run only the RGD API service (port 8080)
+  die           Pull and run only the Online Passport App (port 3000)
   all           Pull and run all services (default)
   build         Build all Docker images locally
   build-run     Build all images locally and run them
@@ -400,6 +447,7 @@ Docker Images:
   DRP API:         $DRP_IMAGE
   DRP Adapter:     $DRP_ADAPTER_IMAGE
   RGD API:         $RGD_IMAGE
+  Passport App:    $DIE_IMAGE
 
 EOF
 }
@@ -422,6 +470,9 @@ main() {
             ;;
         rgd)
             run_rgd false
+            ;;
+        die)
+            run_die false
             ;;
         all)
             run_all false
