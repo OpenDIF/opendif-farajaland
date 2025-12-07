@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to pull and run DRP, DRP Adapter, and RGD data source services using Docker
-# Usage: ./run-services-v2.sh [drp|adapter|rgd|all|build]
+# Usage: ./run-member-services.sh [drp|adapter|rgd|all|build]
 
 set -e
 

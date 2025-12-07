@@ -530,11 +530,11 @@ fi
 
 if [ ! -x "run-services-v2.sh" ]; then
     print_info "Making run-services.sh executable..."
-    chmod +x run-services-v2.sh
+    chmod +x run-member-services.sh
 fi
 
 # Run member services
-./run-services-v2.sh all
+./run-member-services.sh all
 
 print_success "=========================================="
 print_success "All services started successfully!"
