@@ -256,10 +256,10 @@ curl --location --request PUT http://localhost:9180/apisix/admin/routes \
 cd members
 
 # Make the script executable
-chmod +x run-services-v2.sh
+chmod +x run-member-services.sh
 
 # Start all member services
-./run-services-v2.sh all
+./run-member-services.sh all
 ```
 
 Or start services individually:
@@ -336,8 +336,8 @@ bal build
 ```bash
 # Make all shell scripts executable
 chmod +x init.sh
-chmod +x members/run-services.sh
-chmod +x members/run-services-v2.sh
+chmod +x members/run-member-services.sh
+chmod +x members/run-member-services.sh
 chmod +x members/rgd/data-sources/rgd-api/start.sh
 ```
 
