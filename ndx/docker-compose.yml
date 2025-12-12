@@ -39,8 +39,6 @@ services:
       - SERVER_HOSTNAME=wso2is
     volumes:
       - ./config/wso2is/deployment.toml:/home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
-      - ./config/wso2is/wso2carbon.p12:/home/wso2is-7.2.0/repository/resources/security/wso2carbon.p12
-#      - ./config/wso2is/postgresql-42.7.8.jar:/home/wso2carbon/wso2is-7.2.0/repository/components/lib/postgresql-42.7.8.jar
     healthcheck:
       test: [ "CMD", "curl", "-k", "-f", "https://localhost:9443/oauth2/token/.well-known/openid-configuration" ]
       interval: 5s
@@ -138,7 +136,7 @@ services:
     environment:
       - VITE_API_URL=http://localhost:9080
       - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
-      - VITE_BASE_URL=${IDP_BASE_URL:-https://localhost:9443}
+      - VITE_BASE_URL=${IDP_BASE_URL:-https://wso2is:9443}
       - VITE_SCOPE=openid profile email
       - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
       - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
