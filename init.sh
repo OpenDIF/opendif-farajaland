@@ -129,16 +129,27 @@ done
 print_info "Checking WSO2 Identity Server health..."
 
 for i in $(seq 1 30); do
-    STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --insecure \
-        https://wso2is:9443/console)
+    # Use curl with error handling - don't exit on failure
+    if STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 --max-time 10 --insecure \
+        https://wso2is:9443/console 2>/dev/null); then
 
-    if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "302" ]; then
-        print_success "WSO2 Identity Server is ready"
-        break
+        if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "302" ]; then
+            print_success "WSO2 Identity Server is ready (HTTP $STATUS_CODE)"
+            break
+        else
+            print_info "WSO2 IS responded with HTTP $STATUS_CODE, retrying... ($i/30)"
+        fi
+    else
+        print_info "WSO2 IS not reachable yet, retrying... ($i/30)"
     fi
 
     if [ "$i" -eq 30 ]; then
-        print_warning "WSO2 Identity Server health check timeout, continuing anyway..."
+        print_error "WSO2 Identity Server health check failed after 30 attempts"
+        print_error "Please check if WSO2 IS container is running properly:"
+        print_error "  docker-compose -f $NDX_DIR/docker-compose.yml logs wso2is"
+        print_error ""
+        print_error "The script will now exit. Please resolve the issue and try again."
+        exit 1
     fi
 
     sleep 2
