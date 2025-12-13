@@ -547,7 +547,7 @@ if [ ! -f "run-member-services.sh" ]; then
 fi
 
 if [ ! -x "run-member-services.sh" ]; then
-    print_info "Making run--member-services.sh executable..."
+    print_info "Making run-member-services.sh executable..."
     chmod +x run-member-services.sh
 fi
 
