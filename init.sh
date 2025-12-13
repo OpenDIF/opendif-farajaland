@@ -323,6 +323,7 @@ print_info "8. Grant the following scopes:"
 print_info "   - internal_application_mgt_view"
 print_info "   - internal_application_mgt_create"
 print_info "   - internal_application_mgt_update"
+print_info "   - internal_application_mgt_client_secret_view"
 print_info "9. Click 'Finish' to save the permissions"
 echo ""
 print_warning "After granting permissions, the script will automatically create the Consent Portal application."
@@ -468,7 +469,7 @@ PORTAL_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST http
   -d @- <<EOF
 {
   "name": "NDX_CONSENT_PORTAL",
-  "templateId": "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",
+  "templateId": "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",  # WSO2 SPA Application Template ID
   "description": "Single-Page Application for NDX Consent Portal",
   "inboundProtocolConfiguration": {
     "oidc": {

@@ -223,7 +223,7 @@ All services started successfully!
   M2M Application Credentials
 ============================================
 
-Application Name: USER_M2M_APP
+Application Name: Passport Application
 
 Client ID:
 <your-client-id>
@@ -237,7 +237,7 @@ Client Secret:
   • Use these credentials to call the publicly exposed endpoints
 
 Token Endpoint:
-https://localhost:9443/oauth2/token
+https://wso2is:9443/oauth2/token
 
 Public API Gateway:
 http://localhost:9080/public/*
