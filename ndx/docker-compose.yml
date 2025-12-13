@@ -136,6 +136,9 @@ services:
     environment:
       - VITE_API_URL=http://localhost:9080
       - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
+      # NOTE: The default value for VITE_BASE_URL uses 'https://wso2is:9443'.
+      # Make sure 'wso2is' resolves correctly in your browser context (e.g., by adding it to /etc/hosts).
+      # See SETUP.md for more details.
       - VITE_BASE_URL=${IDP_BASE_URL:-https://wso2is:9443}
       - VITE_SCOPE=openid profile email
       - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
