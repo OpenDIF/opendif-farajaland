@@ -436,7 +436,6 @@ bal build
 # Make all shell scripts executable
 chmod +x init.sh
 chmod +x members/run-member-services.sh
-chmod +x members/run-member-services.sh
 chmod +x members/rgd/data-sources/rgd-api/start.sh
 ```
 
