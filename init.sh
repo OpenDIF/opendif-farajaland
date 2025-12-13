@@ -542,7 +542,7 @@ print_info "Starting member data source services..."
 cd "$MEMBERS_DIR"
 
 if [ ! -f "run-member-services.sh" ]; then
-    print_error "run-services.sh not found in members directory"
+    print_error "run-member-services.sh not found in members directory"
     exit 1
 fi
 
