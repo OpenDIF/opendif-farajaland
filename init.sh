@@ -50,6 +50,9 @@ log_error() {
 cleanup() {
     local exit_code=$?
 
+    # Preventing infinite loop when exiting by disabling traps.
+    trap - INT TERM EXIT
+
     if [ $exit_code -ne 0 ]; then
         print_error "Script failed with exit code: $exit_code"
     fi
@@ -74,6 +77,15 @@ trap 'log_error ${LINENO} "$BASH_COMMAND" $?' ERR
 # Check if docker is running
 if ! docker info > /dev/null 2>&1; then
     print_error "Docker is not running. Please start Docker and try again."
+    exit 1
+fi
+
+# Check Whether jq is installed
+if ! command -v jq &> /dev/null; then
+    print_error "Error: 'jq' is not installed."
+    print_error "This script requires jq to parse JSON responses."
+    echo "  - macOS: brew install jq"
+    echo "  - Ubuntu: sudo apt-get install jq"
     exit 1
 fi
 
@@ -186,7 +198,6 @@ fi
 
 print_success "Temporary DCR application created successfully!"
 print_info "Temporary Client ID: $DCR_CLIENT_ID"
-print_info "Temporary Client Secret: $DCR_CLIENT_SECRET"
 echo ""
 
 # Step 2: Create API Gateway application using DCR endpoint
@@ -469,7 +480,7 @@ PORTAL_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST http
   -d @- <<EOF
 {
   "name": "NDX_CONSENT_PORTAL",
-  "templateId": "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",  # WSO2 SPA Application Template ID
+  "templateId": "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",
   "description": "Single-Page Application for NDX Consent Portal",
   "inboundProtocolConfiguration": {
     "oidc": {
@@ -524,7 +535,6 @@ echo ""
 if [ ! -z "$DCR_CLIENT_ID" ]; then
     print_warning "Temporary DCR application NOT deleted for manual testing:"
     print_info "  Client ID: $DCR_CLIENT_ID"
-    print_info "  Client Secret: $DCR_CLIENT_SECRET"
     print_info "  You can use these credentials to test Management API calls via Postman"
     print_info "  To delete manually: DELETE https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
 fi
