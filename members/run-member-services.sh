@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to pull and run DRP, DRP Adapter, and RGD data source services using Docker
-# Usage: ./run-services-v2.sh [drp|adapter|rgd|all|build]
+# Usage: ./run-member-services.sh [drp|adapter|rgd|all|build]
 
 set -e
 
@@ -276,27 +276,27 @@ run_die() {
 
     cleanup_container "$DIE_CONTAINER"
 
-    if [ "$skip_pull" = false ]; then
-        if ! pull_image "$DIE_IMAGE"; then
-            print_warning "Failed to pull image. Checking if local image exists..."
-            if ! docker image inspect "$DIE_IMAGE" &> /dev/null; then
-                print_error "Image not found locally or in registry: $DIE_IMAGE"
-                print_info "Try running with 'build' command to build images locally"
-                return 1
-            fi
-        fi
-    fi
-
-    print_step "Starting Online Passport App container..."
-    docker run -d \
-        --name "$DIE_CONTAINER" \
-        -p 3000:3000 \
-        --restart unless-stopped \
-        "$DIE_IMAGE"
-
-    STARTED_CONTAINERS+=("$DIE_CONTAINER")
-    print_success "Online Passport App started at http://localhost:3000"
-    print_info "Container name: $DIE_CONTAINER"
+#    if [ "$skip_pull" = false ]; then
+#        if ! pull_image "$DIE_IMAGE"; then
+#            print_warning "Failed to pull image. Checking if local image exists..."
+#            if ! docker image inspect "$DIE_IMAGE" &> /dev/null; then
+#                print_error "Image not found locally or in registry: $DIE_IMAGE"
+#                print_info "Try running with 'build' command to build images locally"
+#                return 1
+#            fi
+#        fi
+#    fi
+#
+#    print_step "Starting Online Passport App container..."
+#    docker run -d \
+#        --name "$DIE_CONTAINER" \
+#        -p 3000:3000 \
+#        --restart unless-stopped \
+#        "$DIE_IMAGE"
+#
+#    STARTED_CONTAINERS+=("$DIE_CONTAINER")
+#    print_success "Online Passport App started at http://localhost:3000"
+#    print_info "Container name: $DIE_CONTAINER"
 }
 
 # Function to build all services locally
