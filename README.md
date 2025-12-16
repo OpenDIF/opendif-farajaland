@@ -7,14 +7,14 @@ The **National Data Exchange (NDX)** is a reference implementation of the **Open
 
 ## Table of Contents
 
-- [Understanding the OpenDIF Ecosystem](#understanding-the-opendif-ecosystem)
+- [Understanding the OpenDIF Ecosystem](#understanding-the-farajaland-ndx-ecosystem)
 - [Example: Passport Application via NDX](#example-passport-application-via-ndx)
 - [Member Organizations](#member-organizations)
 - [Security & Privacy](#security--privacy)
 
 ## Understanding the Farajaland NDX Ecosystem
 
-The OpenDIF Farajaland ecosystem consists of various member organizations that participate in the data exchange network.
+The Farajaland NDX ecosystem consists of various member organizations that participate in the data exchange network.
 
 ### Members of the Ecosystem
 
