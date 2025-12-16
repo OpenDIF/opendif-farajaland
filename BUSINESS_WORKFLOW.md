@@ -1,13 +1,13 @@
 # OpenDIF Farajaland - Business Workflow
 
-This document provides a detailed walkthrough of the complete business workflow for Sarah's passport application, demonstrating how OpenDIF Farajaland's NDX facilitates citizen-centric data exchange with consent.
+This document provides a detailed walkthrough of the complete business workflow for Nayana's passport application, demonstrating how OpenDIF Farajaland's NDX facilitates citizen-centric data exchange with consent.
 
 ## Overview
 
 This workflow illustrates the end-to-end process of how the **Department of Immigration and Emigration (DIE)** accesses citizen data from multiple government departments (**RGD** and **DRP**) through the **NDX (National Data Exchange)** with explicit citizen consent.
 
 **Key Participants**:
-- **Sarah**: Citizen applying for a passport
+- **Nayana**: Citizen applying for a passport
 - **DIE**: Department of Immigration and Emigration (Data Consumer)
 - **RGD**: Registrar General's Department (Data Provider - birth records)
 - **DRP**: Department of Registration of Persons (Data Provider - personal registration)
@@ -20,9 +20,9 @@ This workflow illustrates the end-to-end process of how the **Department of Immi
 
 ### Step 1: Application Initiation
 
-- Sarah navigates to the DIE passport application portal
-- She logs into the passport application
-- She starts a new passport application
+- Nayana navigates to the DIE passport application portal
+- He logs into the passport application
+- He starts a new passport application
 
 **What happens behind the scenes**:
 - The passport application prepares to request citizen data
@@ -36,8 +36,8 @@ This workflow illustrates the end-to-end process of how the **Department of Immi
 - The DIE application identifies required data fields:
   - `fullName`, `dateOfBirth`, `birthPlace` (from RGD)
   - `address`, `profession` (from DRP)
-- DIE makes a **first GraphQL query** to NDX requesting Sarah's data
-- **NDX checks the Consent Engine** for Sarah's active consent for DIE
+- DIE makes a **first GraphQL query** to NDX requesting Nayana's data
+- **NDX checks the Consent Engine** for Nayana's active consent for DIE
 
 **Technical Details**:
 ```graphql
@@ -58,7 +58,7 @@ query {
 
 ### Step 3: Consent Portal URL Response
 
-Since Sarah hasn't granted consent yet, NDX responds with:
+Since Nayana hasn't granted consent yet, NDX responds with:
 
 **Response Structure**:
 ```json
@@ -76,7 +76,7 @@ Since Sarah hasn't granted consent yet, NDX responds with:
 
 **Key Points**:
 - **Status**: Consent required
-- **Consent Portal URL**: Where Sarah needs to grant permission
+- **Consent Portal URL**: Where Nayana needs to grant permission
 - **Data request details**: What fields are being requested
 - **Provider information**: Which data providers will be accessed (RGD, DRP)
 - **No data is returned** at this stage
@@ -88,27 +88,27 @@ Since Sarah hasn't granted consent yet, NDX responds with:
 ### Step 4: Redirect to Consent Portal
 
 **Actions**:
-- The passport application **redirects Sarah** to the consent portal URL from the response
+- The passport application **redirects Nayana** to the consent portal URL from the response
 - The URL contains parameters identifying the data consumer (DIE) and requested data scope
 
 **User Experience**:
-- Sarah's browser navigates to the consent portal
-- She sees a branded consent interface with NDX and FUDI branding
-- The interface clearly shows she's granting consent for her passport application
+- Nayana's browser navigates to the consent portal
+- He sees a branded consent interface with NDX and FUDI branding
+- The interface clearly shows he's granting consent for his passport application
 
 ---
 
 ### Step 5: Citizen Authentication
 
 **Actions**:
-- Sarah **authenticates using her FUDI credentials** (Farajaland's national digital identity)
+- Nayana **authenticates using his FUDI credentials** (Farajaland's national digital identity)
 - Multi-factor authentication may be required for sensitive operations
-- FUDI (powered by WSO2 Identity Server) verifies Sarah's identity securely
+- FUDI (powered by WSO2 Identity Server) verifies Nayana's identity securely
 
 **Authentication Flow**:
-1. Sarah enters her FUDI username and password
-2. If MFA is enabled, she receives a code on her registered mobile device
-3. She enters the MFA code
+1. Nayana enters his FUDI username and password
+2. If MFA is enabled, he receives a code on his registered mobile device
+3. He enters the MFA code
 4. FUDI issues an authentication token
 5. The consent portal receives the authenticated session
 
@@ -156,9 +156,9 @@ The Consent Portal displays a detailed consent request:
 ```
 
 **Citizen Actions**:
-- Sarah reviews the request carefully
-- She can click "Learn More" to understand how her data will be used
-- She **grants consent** (or can deny if she chooses)
+- Nayana reviews the request carefully
+- He can click "Learn More" to understand how his data will be used
+- He **grants consent** (or can deny if he chooses)
 - The consent is **recorded in the Consent Engine** with:
   - Timestamp
   - Scope (specific fields and sources)
@@ -176,7 +176,7 @@ The Consent Portal displays a detailed consent request:
 ### Step 7: Redirect Back to Application
 
 **Actions**:
-- After granting consent, Sarah is **redirected back to the passport application**
+- After granting consent, Nayana is **redirected back to the passport application**
 - The application receives confirmation that consent has been granted
 - The session context is maintained
 
@@ -187,7 +187,7 @@ Consent Portal → Callback URL with session token → Passport Application
 
 **User Experience**:
 - Seamless transition back to the passport application
-- Sarah sees a "Processing..." or "Fetching your information..." message
+- Nayana sees a "Processing..." or "Fetching your information..." message
 - The application prepares to make the second data request
 
 ---
@@ -221,7 +221,7 @@ query {
 This time, NDX performs the complete orchestration:
 
 #### 9.1 Consent Verification
-- ✓ Sarah has active consent for DIE
+- ✓ Nayana has active consent for DIE
 - ✓ Consent scope includes all requested fields
 - ✓ Consent has not expired
 
@@ -269,7 +269,7 @@ NDX authenticates to each data provider:
 **From RGD**:
 ```json
 {
-  "fullName": "Sarah Johnson",
+  "fullName": "Nayana Johnson",
   "dateOfBirth": "1990-03-15",
   "birthPlace": "Colombo"
 }
@@ -278,7 +278,7 @@ NDX authenticates to each data provider:
 **From DRP** (via adapter):
 ```json
 {
-  "fullName": "Sarah Johnson",
+  "fullName": "Nayana Johnson",
   "address": "123 Main Street, Colombo",
   "profession": "Software Engineer"
 }
@@ -290,7 +290,7 @@ NDX combines the results from both sources:
 {
   "data": {
     "personInfo": {
-      "fullName": "Sarah Johnson",
+      "fullName": "Nayana Johnson",
       "dateOfBirth": "1990-03-15",
       "birthPlace": "Colombo",
       "address": "123 Main Street, Colombo",
@@ -321,26 +321,26 @@ NDX records the data access event:
 
 **Actions**:
 - DIE receives the **complete data set in a single response**
-- The passport application is **auto-populated** with Sarah's verified information
-- Sarah reviews the pre-filled form
-- Sarah submits her passport application
+- The passport application is **auto-populated** with Nayana's verified information
+- Nayana reviews the pre-filled form
+- Nayana submits his passport application
 - The application is **processed successfully** with verified data
 
 **Form Auto-Population**:
 ```
 ╔════════════════════════════════════════════════════╗
-║        Passport Application - Personal Info         ║
+║        Passport Application - Personal Info        ║
 ╠════════════════════════════════════════════════════╣
-║                                                     ║
-║  Full Name: Sarah Johnson            [verified ✓]  ║
+║                                                    ║
+║  Full Name: Nayana Johnson           [verified ✓]  ║
 ║  Date of Birth: 1990-03-15           [verified ✓]  ║
 ║  Birth Place: Colombo                [verified ✓]  ║
 ║  Current Address:                    [verified ✓]  ║
 ║    123 Main Street, Colombo                        ║
 ║  Profession: Software Engineer       [verified ✓]  ║
-║                                                     ║
+║                                                    ║
 ║  [ Review ] [ Submit Application ]                 ║
-║                                                     ║
+║                                                    ║
 ╚════════════════════════════════════════════════════╝
 ```
 
@@ -354,15 +354,15 @@ NDX records the data access event:
 
 ## The Value Proposition
 
-### For Citizens (Sarah)
+### For Citizens (Nayana)
 
 **Transparency**:
-- Clear visibility into who accesses her data
+- Clear visibility into who accesses his data
 - Detailed consent screens showing exactly what's shared
 - Audit trail of all data access
 
 **Control**:
-- She must explicitly grant consent
+- He must explicitly grant consent
 - Can deny consent if uncomfortable
 - Can revoke consent at any time
 - Granular control over what data is shared
@@ -375,7 +375,7 @@ NDX records the data access event:
 
 **Trust**:
 - Data comes directly from authoritative sources
-- No intermediaries handling her data
+- No intermediaries handling his data
 - Secure authentication via FUDI
 - Compliance with data protection regulations
 
@@ -471,7 +471,7 @@ Access is governed by policies:
 
 ### Scenario 1: Consent Already Granted
 
-If Sarah has previously granted consent to DIE (and it hasn't expired):
+If Nayana has previously granted consent to DIE (and it hasn't expired):
 
 1. Application Initiation (same as Step 1)
 2. **First Data Request** → NDX finds valid consent → **Data returned immediately**
@@ -483,12 +483,12 @@ If Sarah has previously granted consent to DIE (and it hasn't expired):
 
 ### Scenario 2: Consent Denied
 
-If Sarah denies consent:
+If Nayana denies consent:
 
 1. Steps 1-5 (same as main workflow)
-2. **Sarah clicks "Deny" on consent screen**
+2. **Nayana clicks "Deny" on consent screen**
 3. Consent denial is recorded
-4. Sarah is redirected back to passport application
+4. Nayana is redirected back to passport application
 5. Application shows: "Unable to fetch verified data. Please provide documents manually."
 
 **Result**: Application continues with manual data entry.
@@ -497,10 +497,10 @@ If Sarah denies consent:
 
 ### Scenario 3: Partial Consent
 
-If NDX supports granular consent, Sarah could grant access to some fields but not others:
+If NDX supports granular consent, Nayana could grant access to some fields but not others:
 
-1. Sarah grants consent for: `fullName`, `dateOfBirth`, `address`
-2. Sarah denies consent for: `birthPlace`, `profession`
+1. Nayana grants consent for: `fullName`, `dateOfBirth`, `address`
+2. Nayana denies consent for: `birthPlace`, `profession`
 3. Application receives partial data
 4. Missing fields must be manually entered
 
@@ -512,7 +512,7 @@ If NDX supports granular consent, Sarah could grant access to some fields but no
 
 ```
 ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│  Sarah  │     │   DIE   │     │   NDX   │     │  FUDI   │     │RGD/DRP  │
+│ Nayana  │     │   DIE   │     │   NDX   │     │  FUDI   │     │RGD/DRP  │
 └────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘
      │               │               │               │               │
      │ 1. Start App  │               │               │               │
