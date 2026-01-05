@@ -50,6 +50,9 @@ log_error() {
 cleanup() {
     local exit_code=$?
 
+    # Preventing infinite loop when exiting by disabling traps.
+    trap - INT TERM EXIT
+
     if [ $exit_code -ne 0 ]; then
         print_error "Script failed with exit code: $exit_code"
     fi
@@ -74,6 +77,15 @@ trap 'log_error ${LINENO} "$BASH_COMMAND" $?' ERR
 # Check if docker is running
 if ! docker info > /dev/null 2>&1; then
     print_error "Docker is not running. Please start Docker and try again."
+    exit 1
+fi
+
+# Check Whether jq is installed
+if ! command -v jq &> /dev/null; then
+    print_error "Error: 'jq' is not installed."
+    print_error "This script requires jq to parse JSON responses."
+    echo "  - macOS: brew install jq"
+    echo "  - Ubuntu: sudo apt-get install jq"
     exit 1
 fi
 
@@ -111,7 +123,7 @@ echo ""
 
 # Wait for infrastructure services to be ready
 print_info "Waiting for infrastructure services to be ready..."
-sleep 30
+sleep 20
 
 # Check if postgres is ready
 print_info "Checking PostgreSQL health..."
@@ -129,16 +141,27 @@ done
 print_info "Checking WSO2 Identity Server health..."
 
 for i in $(seq 1 30); do
-    STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --insecure \
-        https://localhost:9443/console)
+    # Use curl with error handling - don't exit on failure
+    if STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 --max-time 10 --insecure \
+        https://wso2is:9443/console 2>/dev/null); then
 
-    if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "302" ]; then
-        print_success "WSO2 Identity Server is ready"
-        break
+        if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "302" ]; then
+            print_success "WSO2 Identity Server is ready (HTTP $STATUS_CODE)"
+            break
+        else
+            print_info "WSO2 IS responded with HTTP $STATUS_CODE, retrying... ($i/30)"
+        fi
+    else
+        print_info "WSO2 IS not reachable yet, retrying... ($i/30)"
     fi
 
     if [ "$i" -eq 30 ]; then
-        print_warning "WSO2 Identity Server health check timeout, continuing anyway..."
+        print_error "WSO2 Identity Server health check failed after 30 attempts"
+        print_error "Please check if WSO2 IS container is running properly:"
+        print_error "  docker-compose -f $NDX_DIR/docker-compose.yml logs wso2is"
+        print_error ""
+        print_error "The script will now exit. Please resolve the issue and try again."
+        exit 1
     fi
 
     sleep 2
@@ -146,7 +169,7 @@ done
 
 # Step 1: Create initial DCR application to obtain credentials for Management API access
 print_info "Creating temporary DCR application for Management API access..."
-DCR_RESPONSE=$(curl --silent -X POST https://localhost:9443/api/identity/oauth2/dcr/v1.1/register \
+DCR_RESPONSE=$(curl --silent -X POST https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic YWRtaW46YWRtaW4=" \
@@ -175,133 +198,31 @@ fi
 
 print_success "Temporary DCR application created successfully!"
 print_info "Temporary Client ID: $DCR_CLIENT_ID"
-print_info "Temporary Client Secret: $DCR_CLIENT_SECRET"
 echo ""
 
-# Step 2: Obtain access token using DCR credentials
-print_info "Obtaining access token for Management API..."
-print_info "Requesting scopes: internal_application_mgt_view internal_application_mgt_create internal_application_mgt_update internal_application_mgt_delete"
-
-TOKEN_RESPONSE=$(curl --silent -X POST https://localhost:9443/oauth2/token \
+# Step 2: Create API Gateway application using DCR endpoint
+print_info "Creating M2M application for API Gateway using DCR endpoint..."
+GATEWAY_DCR_RESPONSE=$(curl --silent -X POST https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register \
   --insecure \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -u "$DCR_CLIENT_ID:$DCR_CLIENT_SECRET" \
-  -d "grant_type=client_credentials&scope=internal_application_mgt_view internal_application_mgt_create internal_application_mgt_update internal_application_mgt_delete")
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic YWRtaW46YWRtaW4=" \
+  -d '{
+    "client_name": "NDX_API_GATEWAY",
+    "grant_types": ["client_credentials", "refresh_token"],
+    "token_type": "OAUTH"
+  }')
 
-print_info "Token Response: $TOKEN_RESPONSE"
+CLIENT_ID=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_id')
+CLIENT_SECRET=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_secret')
 
-ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
-
-if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
-    print_error "Failed to obtain access token"
-    print_error "Response was: $TOKEN_RESPONSE"
-    print_warning "The temporary DCR application may not have the necessary permissions."
-    print_warning "Falling back to using admin credentials directly for application creation..."
-
-    # Fallback: Use DCR directly for both applications
-    print_info "Creating M2M application for API Gateway using DCR..."
-    GATEWAY_DCR_RESPONSE=$(curl --silent -X POST https://localhost:9443/api/identity/oauth2/dcr/v1.1/register \
-      --insecure \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Basic YWRtaW46YWRtaW4=" \
-      -d '{
-        "client_name": "NDX_API_GATEWAY",
-        "grant_types": ["client_credentials", "refresh_token"],
-        "token_type": "OAUTH"
-      }')
-
-    CLIENT_ID=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_id')
-    CLIENT_SECRET=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_secret')
-
-    if [ "$CLIENT_ID" = "null" ] || [ -z "$CLIENT_ID" ]; then
-        print_error "Failed to create API Gateway application"
-        exit 1
-    fi
-
-    print_success "API Gateway application created successfully!"
-    print_info "API Gateway Client ID: $CLIENT_ID"
-
-    # Skip to Consent Portal creation (will be handled later in script)
-    USE_MANAGEMENT_API=false
-else
-    print_success "Access token obtained successfully!"
-    print_info "Access Token (first 20 chars): ${ACCESS_TOKEN:0:20}..."
-    echo ""
-    USE_MANAGEMENT_API=true
-
-    # Step 3: Create M2M application for API Gateway using Management API
-    print_info "Creating M2M application for API Gateway using Management API..."
-    GATEWAY_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST https://localhost:9443/api/server/v1/applications \
-      --insecure \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $ACCESS_TOKEN" \
-      -d '{
-        "name": "NDX_API_GATEWAY",
-        "description": "Machine-to-Machine application for NDX API Gateway",
-        "inboundProtocolConfiguration": {
-          "oidc": {
-            "grantTypes": ["client_credentials", "refresh_token"],
-            "publicClient": false
-          }
-        }
-      }')
-
-    HTTP_STATUS=$(echo "$GATEWAY_APP_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
-    GATEWAY_APP_BODY=$(echo "$GATEWAY_APP_RESPONSE" | sed '/HTTP_STATUS:/d')
-
-    print_info "HTTP Status: $HTTP_STATUS"
-    print_info "Response Body: $GATEWAY_APP_BODY"
-
-    if [ "$HTTP_STATUS" != "201" ]; then
-        print_error "Failed to create API Gateway application via Management API (HTTP $HTTP_STATUS)"
-        print_error "Response: $GATEWAY_APP_BODY"
-        print_warning "Falling back to DCR for application creation..."
-
-        GATEWAY_DCR_RESPONSE=$(curl --silent -X POST https://localhost:9443/api/identity/oauth2/dcr/v1.1/register \
-          --insecure \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Basic YWRtaW46YWRtaW4=" \
-          -d '{
-            "client_name": "NDX_API_GATEWAY",
-            "grant_types": ["client_credentials", "refresh_token"],
-            "token_type": "OAUTH"
-          }')
-
-        CLIENT_ID=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_id')
-        CLIENT_SECRET=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_secret')
-        USE_MANAGEMENT_API=false
-    else
-        GATEWAY_APP_ID=$(echo "$GATEWAY_APP_BODY" | jq -r '.id')
-
-        if [ "$GATEWAY_APP_ID" = "null" ] || [ -z "$GATEWAY_APP_ID" ]; then
-            print_error "Failed to extract application ID"
-            exit 1
-        fi
-
-        print_success "API Gateway application created successfully!"
-        print_info "Application ID: $GATEWAY_APP_ID"
-        echo ""
-
-        # Get the OAuth credentials for the Gateway app
-        print_info "Retrieving OAuth credentials for API Gateway application..."
-        GATEWAY_INBOUND_RESPONSE=$(curl --silent -X GET "https://localhost:9443/api/server/v1/applications/$GATEWAY_APP_ID/inbound-protocols/oidc" \
-          --insecure \
-          -H "Authorization: Bearer $ACCESS_TOKEN")
-
-        CLIENT_ID=$(echo "$GATEWAY_INBOUND_RESPONSE" | jq -r '.clientId')
-        CLIENT_SECRET=$(echo "$GATEWAY_INBOUND_RESPONSE" | jq -r '.clientSecret')
-
-        if [ "$CLIENT_ID" = "null" ] || [ -z "$CLIENT_ID" ]; then
-            print_error "Failed to retrieve API Gateway OAuth credentials"
-            print_error "Response was: $GATEWAY_INBOUND_RESPONSE"
-            exit 1
-        fi
-
-        print_success "API Gateway OAuth credentials retrieved successfully!"
-        print_info "API Gateway Client ID: $CLIENT_ID"
-    fi
+if [ "$CLIENT_ID" = "null" ] || [ -z "$CLIENT_ID" ]; then
+    print_error "Failed to create API Gateway application via DCR"
+    print_error "Response was: $GATEWAY_DCR_RESPONSE"
+    exit 1
 fi
 
+print_success "API Gateway application created successfully via DCR!"
+print_info "API Gateway Client ID: $CLIENT_ID"
 echo ""
 
 
@@ -369,7 +290,8 @@ curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
             "client_id": "$CLIENT_ID",
             "client_secret": "$CLIENT_SECRET",
             "use_jwks": true,
-            "ssl_verify": false
+            "ssl_verify": false,
+            "access_token_in_authorization_header": true
         },
         "cors": {
             "allow_origins": "http://localhost:5173",
@@ -390,117 +312,222 @@ fi
 print_success "Consent engine routes registered successfully"
 echo ""
 
-# Step 4: Create SPA application for Consent Portal
-if [ "$USE_MANAGEMENT_API" = true ]; then
-    print_info "Creating SPA application for Consent Portal using Management API..."
-    PORTAL_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST https://localhost:9443/api/server/v1/applications \
-      --insecure \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $ACCESS_TOKEN" \
-      -d '{
-        "name": "NDX_CONSENT_PORTAL",
-        "description": "Single-Page Application for NDX Consent Portal",
-        "inboundProtocolConfiguration": {
-          "oidc": {
-            "grantTypes": ["authorization_code", "refresh_token"],
-            "callbackURLs": ["http://localhost:5173"],
-            "allowedOrigins": ["http://localhost:5173"],
-            "publicClient": true,
-            "pkce": {
-              "mandatory": true,
-              "supportPlainTransformAlgorithm": false
-            },
-            "accessToken": {
-              "type": "Default",
-              "applicationAccessTokenExpiryInSeconds": 3600,
-              "userAccessTokenExpiryInSeconds": 3600
-            },
-            "refreshToken": {
-              "expiryInSeconds": 86400,
-              "renewRefreshToken": true
-            },
-            "idToken": {
-              "expiryInSeconds": 3600
-            }
-          }
-        }
-      }')
+# Step 4: Grant permissions to the temporary DCR application
+echo ""
+print_warning "=========================================="
+print_warning "MANUAL STEP REQUIRED: Grant Application Management Permissions"
+print_warning "=========================================="
+echo ""
+print_info "To allow automated creation of the Consent Portal SPA application,"
+print_info "please grant the necessary permissions to the temporary DCR application."
+echo ""
+print_info "Follow these steps:"
+echo ""
+print_info "1. Open WSO2 Identity Server Console: https://wso2is:9443/console"
+print_info "2. Login with credentials: admin / admin"
+print_info "3. Navigate to: Applications"
+print_info "4. Find and click on the application: TEMPORARY_DCR_APP"
+print_info "5. Go to the 'API Authorization' tab"
+print_info "6. Click 'Authorize an API Resource'"
+print_info "7. Select: Application Management API"
+print_info "8. Grant the following scopes:"
+print_info "   - internal_application_mgt_view"
+print_info "   - internal_application_mgt_create"
+print_info "   - internal_application_mgt_update"
+print_info "   - internal_application_mgt_client_secret_view"
+print_info "9. Click 'Finish' to save the permissions"
+echo ""
+print_warning "After granting permissions, the script will automatically create the Consent Portal application."
+echo ""
 
-    HTTP_STATUS=$(echo "$PORTAL_APP_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
-    PORTAL_APP_BODY=$(echo "$PORTAL_APP_RESPONSE" | sed '/HTTP_STATUS:/d')
+# Prompt user to confirm they have granted permissions
+while true; do
+    printf "%b" "${BLUE}[CONFIRM]${NC} Have you granted the required permissions? (y/n): "
+    read PERMISSIONS_GRANTED
 
-    print_info "HTTP Status: $HTTP_STATUS"
-    print_info "Response Body: $PORTAL_APP_BODY"
-
-    if [ "$HTTP_STATUS" != "201" ]; then
-        print_error "Failed to create Consent Portal application via Management API (HTTP $HTTP_STATUS)"
-        print_error "Response: $PORTAL_APP_BODY"
-        print_warning "Falling back to DCR for Consent Portal creation..."
-        USE_MANAGEMENT_API=false
+    if [[ "$PERMISSIONS_GRANTED" =~ ^[Yy]$ ]]; then
+        print_success "Permissions confirmed. Proceeding with application creation..."
+        break
+    elif [[ "$PERMISSIONS_GRANTED" =~ ^[Nn]$ ]]; then
+        print_warning "Please grant the permissions before continuing."
     else
-        PORTAL_APP_ID=$(echo "$PORTAL_APP_BODY" | jq -r '.id')
-
-        if [ "$PORTAL_APP_ID" = "null" ] || [ -z "$PORTAL_APP_ID" ]; then
-            print_error "Failed to extract Consent Portal application ID"
-            exit 1
-        fi
-
-        print_success "Consent Portal application created successfully!"
-        print_info "Application ID: $PORTAL_APP_ID"
-        echo ""
-
-        # Get the OAuth credentials for the Consent Portal app
-        print_info "Retrieving OAuth credentials for Consent Portal application..."
-        PORTAL_INBOUND_RESPONSE=$(curl --silent -X GET "https://localhost:9443/api/server/v1/applications/$PORTAL_APP_ID/inbound-protocols/oidc" \
-          --insecure \
-          -H "Authorization: Bearer $ACCESS_TOKEN")
-
-        PORTAL_CLIENT_ID=$(echo "$PORTAL_INBOUND_RESPONSE" | jq -r '.clientId')
-
-        if [ "$PORTAL_CLIENT_ID" = "null" ] || [ -z "$PORTAL_CLIENT_ID" ]; then
-            print_error "Failed to retrieve Consent Portal OAuth credentials"
-            print_error "Response was: $PORTAL_INBOUND_RESPONSE"
-            exit 1
-        fi
-
-        print_success "Consent Portal OAuth credentials retrieved successfully!"
-        print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
+        print_error "Invalid input. Please enter 'y' or 'n'."
     fi
+done
+
+# First, obtain a new access token with the updated permissions
+TOKEN_RESPONSE=$(curl --silent -X POST https://wso2is:9443/oauth2/token \
+  --insecure \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -u "$DCR_CLIENT_ID:$DCR_CLIENT_SECRET" \
+  -d "grant_type=client_credentials&scope=internal_application_mgt_view internal_application_mgt_create internal_application_mgt_update internal_application_mgt_client_secret_view")
+
+ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
+
+if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+    print_error "Failed to obtain access token with updated permissions"
+    print_error "Response was: $TOKEN_RESPONSE"
+    exit 1
 fi
 
-# Fallback to DCR if Management API approach failed or wasn't used
-if [ "$USE_MANAGEMENT_API" != true ]; then
-    print_info "Creating SPA application for Consent Portal using DCR..."
-    PORTAL_DCR_RESPONSE=$(curl --silent -X POST https://localhost:9443/api/identity/oauth2/dcr/v1.1/register \
-      --insecure \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Basic YWRtaW46YWRtaW4=" \
-      -d '{
-        "client_name": "NDX_CONSENT_PORTAL",
-        "redirect_uris": ["http://localhost:5173"],
-        "grant_types": ["authorization_code", "refresh_token"],
-        "ext_pkce_mandatory": true,
-        "ext_pkce_support_plain": false,
-        "ext_public_client": true,
-        "ext_application_token_lifetime": 3600,
-        "ext_user_token_lifetime": 3600,
-        "ext_refresh_token_lifetime": 86400,
-        "ext_id_token_lifetime": 3600,
-        "token_type": "OAUTH"
-      }')
+print_success "Access token obtained successfully!"
+echo ""
 
-    PORTAL_CLIENT_ID=$(echo "$PORTAL_DCR_RESPONSE" | jq -r '.client_id')
+# Create M2M Application using Management API
+print_info "Creating M2M application (Passport Application) using Management API..."
 
-    if [ "$PORTAL_CLIENT_ID" = "null" ] || [ -z "$PORTAL_CLIENT_ID" ]; then
-        print_error "Failed to create Consent Portal application"
-        print_error "Response was: $PORTAL_DCR_RESPONSE"
-        exit 1
-    fi
+M2M_APP_RESPONSE=$(curl --silent --insecure -i \
+  -X POST https://wso2is:9443/api/server/v1/applications \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d @- <<EOF
+{
+  "name": "Passport Application",
+  "templateId": "m2m-application",
+  "associatedRoles": {
+    "allowedAudience": "APPLICATION",
+    "roles": []
+  },
+  "inboundProtocolConfiguration": {
+    "oidc": {
+      "grantTypes": ["client_credentials"],
+      "accessToken": {
+        "accessTokenAttributes": [],
+        "applicationAccessTokenExpiryInSeconds": 3600,
+        "revokeTokensWhenIDPSessionTerminated": false,
+        "type": "JWT",
+        "userAccessTokenExpiryInSeconds": 0,
+        "validateTokenBinding": false
+      }
+    }
+  }
+}
+EOF
+)
 
-    print_success "Consent Portal application created successfully!"
-    print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
-    print_warning "CORS allowed origins not configured. Please configure manually in WSO2 IS console if needed."
+M2M_HTTP_STATUS=$(echo "$M2M_APP_RESPONSE" | grep "HTTP/" | head -1 | awk '{print $2}')
+M2M_LOCATION=$(echo "$M2M_APP_RESPONSE" | grep -i "^location:" | cut -d: -f2- | tr -d '\r' | xargs)
+M2M_APP_BODY=$(echo "$M2M_APP_RESPONSE" | sed -n '/^{/,/^}/p')
+
+if [ "$M2M_HTTP_STATUS" != "201" ]; then
+    print_error "Failed to create M2M application via Management API (HTTP $M2M_HTTP_STATUS)"
+    print_error "Response: $M2M_APP_BODY"
+    exit 1
 fi
+
+# Extract application ID from Location header
+# Location format: https://wso2is:9443/api/server/v1/applications/{app-id}
+M2M_APP_ID=$(echo "$M2M_LOCATION" | sed 's|.*/applications/||')
+
+if [ -z "$M2M_APP_ID" ]; then
+    print_error "Failed to extract application ID from Location header"
+    print_error "Location header was: $M2M_LOCATION"
+    exit 1
+fi
+
+# Retrieve the full application details to get client ID and secret
+print_info "Retrieving M2M application credentials..."
+M2M_DETAILS_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X GET "https://wso2is:9443/api/server/v1/applications/$M2M_APP_ID/inbound-protocols/oidc" \
+  --insecure \
+  -H "Authorization: Bearer $ACCESS_TOKEN")
+
+M2M_DETAILS_HTTP_STATUS=$(echo "$M2M_DETAILS_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+M2M_DETAILS_BODY=$(echo "$M2M_DETAILS_RESPONSE" | sed '/HTTP_STATUS:/d')
+
+# Print the body for debugging
+print_info "M2M Application Details Response (HTTP $M2M_DETAILS_HTTP_STATUS):"
+echo "$M2M_DETAILS_BODY"
+
+if [ "$M2M_DETAILS_HTTP_STATUS" != "200" ]; then
+    print_error "Failed to retrieve M2M application details (HTTP $M2M_DETAILS_HTTP_STATUS)"
+    print_error "Response: $M2M_DETAILS_BODY"
+    exit 1
+fi
+
+M2M_CLIENT_ID=$(echo "$M2M_DETAILS_BODY" | jq -r '.clientId')
+M2M_CLIENT_SECRET=$(echo "$M2M_DETAILS_BODY" | jq -r '.clientSecret')
+
+if [ "$M2M_CLIENT_ID" = "null" ] || [ -z "$M2M_CLIENT_ID" ]; then
+    print_error "Failed to extract M2M Client ID from application details"
+    print_error "Response: $M2M_DETAILS_BODY"
+    exit 1
+fi
+
+print_success "M2M application (Passport Application) created successfully!"
+echo ""
+print_success "=========================================="
+print_success "M2M Application Credentials"
+print_success "=========================================="
+print_info "Application Name: Passport Application"
+print_info "Client ID:        $M2M_CLIENT_ID"
+print_info "Client Secret:    $M2M_CLIENT_SECRET"
+print_success "=========================================="
+echo ""
+
+# Define the Consent Portal client ID
+PORTAL_CLIENT_ID="Mpjt5VUqDPL8iVByyFcMDregz6Ea"
+
+# Now attempt to create the Consent Portal SPA application using the Management API
+print_info "Creating SPA application for Consent Portal using Management API..."
+
+# Create the Consent Portal SPA application with predefined client_id
+print_info "Creating Consent Portal application with client ID: $PORTAL_CLIENT_ID"
+
+PORTAL_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST https://wso2is:9443/api/server/v1/applications \
+  --insecure \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d @- <<EOF
+{
+  "name": "NDX_CONSENT_PORTAL",
+  "templateId": "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",
+  "description": "Single-Page Application for NDX Consent Portal",
+  "inboundProtocolConfiguration": {
+    "oidc": {
+      "clientId": "$PORTAL_CLIENT_ID",
+      "grantTypes": ["authorization_code", "refresh_token"],
+      "callbackURLs": ["http://localhost:5173"],
+      "allowedOrigins": ["http://localhost:5173"],
+      "publicClient": true,
+      "pkce": {
+        "mandatory": true,
+        "supportPlainTransformAlgorithm": false
+      },
+      "accessToken": {
+        "type": "JWT",
+        "userAccessTokenExpiryInSeconds": 3600,
+        "applicationAccessTokenExpiryInSeconds": 3600,
+        "accessTokenAttributes": [
+          "email"
+        ]
+      },
+      "refreshToken": {
+        "expiryInSeconds": 86400,
+        "renewRefreshToken": true
+      },
+      "idToken": {
+        "expiryInSeconds": 3600
+      }
+    }
+  }
+}
+EOF
+)
+
+HTTP_STATUS=$(echo "$PORTAL_APP_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+PORTAL_APP_BODY=$(echo "$PORTAL_APP_RESPONSE" | sed '/HTTP_STATUS:/d')
+
+print_info "Consent Portal Application Creation Response (HTTP $HTTP_STATUS):"
+echo "$PORTAL_APP_BODY"
+
+if [ "$HTTP_STATUS" != "201" ]; then
+    print_error "Failed to create Consent Portal application via Management API (HTTP $HTTP_STATUS)"
+    print_error "Response: $PORTAL_APP_BODY"
+    exit 1
+fi
+
+print_success "Consent Portal application created successfully!"
+print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 
 echo ""
 
@@ -508,13 +535,15 @@ echo ""
 if [ ! -z "$DCR_CLIENT_ID" ]; then
     print_warning "Temporary DCR application NOT deleted for manual testing:"
     print_info "  Client ID: $DCR_CLIENT_ID"
-    print_info "  Client Secret: $DCR_CLIENT_SECRET"
     print_info "  You can use these credentials to test Management API calls via Postman"
-    print_info "  To delete manually: DELETE https://localhost:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
+    print_info "  To delete manually: DELETE https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
 fi
 
 echo ""
-print_success "Application setup completed!"
+print_success "=========================================="
+print_success "Application Setup Completed!"
+print_success "=========================================="
+echo ""
 print_info "API Gateway Client ID: $CLIENT_ID"
 print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 echo ""
@@ -523,19 +552,29 @@ echo ""
 print_info "Starting member data source services..."
 cd "$MEMBERS_DIR"
 
-if [ ! -f "run-services-v2.sh" ]; then
-    print_error "run-services.sh not found in members directory"
+if [ ! -f "run-member-services.sh" ]; then
+    print_error "run-member-services.sh not found in members directory"
     exit 1
 fi
 
-if [ ! -x "run-services-v2.sh" ]; then
-    print_info "Making run-services.sh executable..."
-    chmod +x run-services-v2.sh
+if [ ! -x "run-member-services.sh" ]; then
+    print_info "Making run-member-services.sh executable..."
+    chmod +x run-member-services.sh
 fi
 
 # Run member services
-./run-services-v2.sh all
+./run-member-services.sh all
 
+echo ""
+print_success "=========================================="
+print_success "Passport Application (M2M) Credentials"
+print_success "=========================================="
+print_info "Use these credentials to call the API:"
+echo ""
+print_info "Client ID:     $M2M_CLIENT_ID"
+print_info "Client Secret: $M2M_CLIENT_SECRET"
+print_success "=========================================="
+echo ""
 print_success "=========================================="
 print_success "All services started successfully!"
 print_success "=========================================="
