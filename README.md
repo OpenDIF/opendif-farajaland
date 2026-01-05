@@ -1,94 +1,35 @@
-# OpenDIF Farajaland
+# National Data Exchange (NDX) For Farajaland Powered by OpenDIF
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![OpenDIF](https://img.shields.io/badge/OpenDIF-Reference%20Implementation-green.svg)](https://opendif.org)
 
-A reference implementation of the **Open Data Interchange Framework (OpenDIF)** for the fictional country of Farajaland, demonstrating secure, privacy-preserving data exchange across government agencies through a citizen-centric, consent-based approach.
+The **National Data Exchange (NDX)** is a reference implementation of the **Open Data Interchange Framework (OpenDIF)** for the fictional country of Farajaland. NDX demonstrates secure, privacy-preserving data exchange across government agencies through a citizen-centric, consent-based approach.
 
 ## Table of Contents
 
-- [The Story: A Passport Application Journey](#the-story-a-passport-application-journey)
-- [Understanding the OpenDIF Ecosystem](#understanding-the-opendif-ecosystem)
+- [Understanding the OpenDIF Ecosystem](#understanding-the-farajaland-ndx-ecosystem)
+- [Example: Passport Application via NDX](#example-passport-application-via-ndx)
 - [Member Organizations](#member-organizations)
 - [Security & Privacy](#security--privacy)
 
-## The Story: A Passport Application Journey
+## Understanding the Farajaland NDX Ecosystem
 
-Meet **Sarah**, a citizen of Farajaland who needs to apply for a passport. To process her application, the **Department of Immigration and Emigration (DIE)** needs to verify several pieces of information about her:
-
-- Her **full name, birth date, and birth place** - maintained by the **Registrar General's Department (RGD)**
-- Her **current address and profession** - maintained by the **Department of Registration of Persons (DRP)**
-
-### The Old Way: Point-to-Point Integration Chaos
-
-Traditionally, DIE would need to:
-1. Integrate directly with RGD's API to fetch birth records
-2. Integrate separately with DRP's API to fetch registration details
-3. Manage separate authentication credentials for each system
-4. Handle different API formats, versions, and protocols
-5. Build and maintain custom integration code for each department
-6. Update integrations whenever any department changes their API
-
-This creates a tangled web of point-to-point connections. With just 3 departments, there are already 2 integrations to manage. As more departments join (Motor Traffic, Health, Education), the complexity grows exponentially: **N × (N-1) / 2** integration points.
-
-### The OpenDIF Way: Federated Data Exchange with Consent
-
-With **OpenDIF Farajaland's NDX (National Data Exchange)** implementation, the process is transformed:
-
-1. **Sarah logs into the DIE passport application**
-2. The DIE application makes a **first data request** to NDX with a GraphQL query for Sarah's information
-3. **NDX checks for consent** - since Sarah hasn't granted consent yet, NDX doesn't return the data. Instead, it returns a response containing:
-   - A **consent portal URL** where Sarah needs to grant permission
-   - Details of what data is being requested
-   - Which data providers will be accessed (RGD, DRP)
-4. The **passport application redirects Sarah** to the consent portal URL
-5. Sarah **authenticates using her FUDI credentials** (Farajaland's national digital identity)
-6. The Consent Portal shows Sarah exactly what data will be shared:
-   - Full name, birth date, and birth place (from RGD)
-   - Current address and profession (from DRP)
-   - Who is requesting the data (DIE)
-   - For what purpose (passport application)
-7. **Sarah grants consent** - she is the data owner, and the departments (RGD, DRP) are merely custodians
-8. After granting consent, Sarah is **redirected back to the passport application**
-9. The DIE application makes a **second data request** to NDX with the same GraphQL query
-10. This time, NDX orchestrates the data retrieval:
-    - Verifies Sarah's active consent ✓
-    - Checks access policies ✓
-    - Federates the query across RGD and DRP
-    - Aggregates the results
-11. DIE receives a **unified response with all required data**
-12. Sarah's passport application is **auto-populated and processed** seamlessly
-
-**The key differences**:
-- DIE doesn't call RGD and DRP directly - it only queries NDX
-- The **first data request triggers the consent flow** if consent doesn't exist
-- The **consent portal URL is provided in the response**, not hardcoded in the application
-- Only the **second data request (after consent) returns the actual data**
-- NDX handles all complexity of consent verification, data federation, and policy enforcement
-
-## Understanding the OpenDIF Ecosystem
-
-The OpenDIF Farajaland ecosystem consists of various member organizations, each playing a specific role:
+The Farajaland NDX ecosystem consists of various member organizations that participate in the data exchange network.
 
 ### Members of the Ecosystem
 
-**Members** are organizations that participate in the data exchange ecosystem. They can be:
+**Members** are organizations registered in the NDX ecosystem. Each member can:
+- Have **multiple data sources** that provide data (making them data providers)
+- Have **multiple applications** that consume data (making them data consumers)
+- Be **both a provider and consumer** simultaneously
 
-#### Data Providers
-Organizations that **provide data** (can be custodians or owners):
-- **RGD (Registrar General's Department)**: Birth records, civil registration
-- **DRP (Department of Registration of Persons)**: Personal registration, addresses, professions
-- **DMT (Department of Motor Traffic)**: Vehicle registrations *(coming soon)*
+**Current Members**:
+- **RGD (Registrar General's Department)**: Provides birth records and civil registration data
+- **DRP (Department of Registration of Persons)**: Provides personal registration, address, and profession data
+- **DMT (Department of Motor Traffic)**: Will provide vehicle registration data *(coming soon)*
+- **DIE (Department of Immigration and Emigration)**: Consumes data for passport application processing
 
-Each data provider can have **multiple data sources** - different systems or APIs that expose data.
-
-#### Data Consumers
-Organizations that **consume data** to deliver services:
-- **DIE (Department of Immigration and Emigration)**: Passport application processing
-
-Each data consumer can have **multiple applications** that need access to federated data.
-
-**Important Principle**: When data providers are **custodians**, not owners. Citizens own their data. This is why consent is required before any data sharing occurs.
+**Important Principle**: Member organizations that provide data are **custodians**, not owners. Citizens own their data. This is why consent is required before any data sharing occurs.
 
 ### The NDX: The Trust Fabric
 
@@ -108,11 +49,66 @@ The **NDX (National Data Exchange)** is the central infrastructure that:
 - Issues tokens for authenticated sessions
 - Integrates with the consent management flow
 
+## Example: Passport Application via NDX
+
+The **DIE Passport Application** is a registered consumer application in NDX that fetches user-specific data from multiple data providers. Here's how it works when **Nayana**, a citizen of Farajaland, applies for a passport. The application queries NDX to verify several pieces of information about him:
+
+- His **full name, birth date, and birth place** - maintained by the **Registrar General's Department (RGD)**
+- His **current address and profession** - maintained by the **Department of Registration of Persons (DRP)**
+
+### The Old Way: Point-to-Point Integration Chaos
+
+Traditionally, DIE would need to:
+1. Integrate directly with RGD's API to fetch birth records
+2. Integrate separately with DRP's API to fetch registration details
+3. Manage separate authentication credentials for each system
+4. Handle different API formats, versions, and protocols
+5. Build and maintain custom integration code for each department
+6. Update integrations whenever any department changes their API
+
+This creates a tangled web of point-to-point connections. With just 3 departments, there are already 2 integrations to manage. As more departments join (Motor Traffic, Health, Education), the complexity grows exponentially: **N × (N-1) / 2** integration points.
+
+### The OpenDIF Way: Federated Data Exchange with Consent
+
+As a **registered application in NDX**, the DIE Passport Application can query user-specific data from multiple providers through a single endpoint:
+
+1. **Nayana logs into the DIE passport application** (registered as an NDX consumer)
+2. The application makes a **first data request** to NDX with a GraphQL query for Nayana's user-specific information
+3. **NDX checks for consent** - since Nayana hasn't granted consent yet, NDX doesn't return the data. Instead, it returns a response containing:
+   - A **consent portal URL** where Nayana needs to grant permission
+   - Details of what data is being requested
+   - Which data providers will be accessed (RGD, DRP)
+4. The **passport application redirects Nayana** to the consent portal URL
+5. Nayana **authenticates using his FUDI credentials** (Farajaland's national digital identity)
+6. The Consent Portal shows Nayana exactly what data will be shared:
+   - Full name, birth date, and birth place (from RGD)
+   - Current address and profession (from DRP)
+   - Who is requesting the data (DIE)
+   - For what purpose (passport application)
+7. **Nayana grants consent** - he is the data owner, and the departments (RGD, DRP) are merely custodians
+8. After granting consent, Nayana is **redirected back to the passport application**
+9. The DIE application makes a **second data request** to NDX with the same GraphQL query
+10. This time, NDX orchestrates the data retrieval:
+    - Verifies Nayana's active consent ✓
+    - Checks access policies ✓
+    - Federates the query across RGD and DRP
+    - Aggregates the results
+11. DIE receives a **unified response with all required data**
+12. Nayana's passport application is **auto-populated and processed** seamlessly
+
+**The key differences**:
+- The **Passport Application is registered in NDX** as an authorized consumer
+- The application **queries NDX for user-specific data** - never calling data providers directly
+- The **first data request triggers the consent flow** if consent doesn't exist
+- The **consent portal URL is provided in the response**, not hardcoded in the application
+- Only the **second data request (after consent) returns the actual data**
+- NDX handles all complexity of consent verification, data federation, and policy enforcement
+
 ---
 
 ## 📋 Want to See the Complete Workflow?
 
-For a detailed, step-by-step walkthrough of Sarah's passport application journey—including consent flows, data federation, and policy enforcement—check out our **[Business Workflow Guide](BUSINESS_WORKFLOW.md)**.
+For a detailed, step-by-step walkthrough of Nayana's passport application journey—including consent flows, data federation, and policy enforcement—check out our **[Business Workflow Guide](BUSINESS_WORKFLOW.md)**.
 
 The guide covers:
 - All 10 steps of the workflow in detail
