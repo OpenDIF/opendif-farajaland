@@ -1,10 +1,9 @@
-"use client"
-
 import { createContext, useContext, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ChevronLeft, ChevronRight, Check, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface FormStep {
@@ -47,6 +46,7 @@ export function MultiStepForm({ steps, onSubmit, children }: MultiStepFormProps)
   const [currentStep, setCurrentStep] = useState(0)
   const [formData, setFormData] = useState<Record<string, any>>({})
   const [stepValidation, setStepValidation] = useState<Record<number, boolean>>({})
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const updateFormData = (stepId: string, data: any) => {
     setFormData((prev) => ({
@@ -56,8 +56,15 @@ export function MultiStepForm({ steps, onSubmit, children }: MultiStepFormProps)
   }
 
   const nextStep = () => {
+    // Check if current step is valid before allowing navigation
+    if (!isStepValid(currentStep)) {
+      setValidationError("Please fill in all required fields before proceeding to the next step.")
+      return
+    }
+
     if (currentStep < steps.length - 1) {
       setCurrentStep((prev) => prev + 1)
+      setValidationError(null)
     }
   }
 
@@ -152,6 +159,14 @@ export function MultiStepForm({ steps, onSubmit, children }: MultiStepFormProps)
           <CardContent>{steps[currentStep].component}</CardContent>
         </Card>
 
+        {/* Validation Error Alert */}
+        {validationError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{validationError}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Navigation Buttons */}
         <div className="flex justify-between">
           <Button
@@ -169,7 +184,11 @@ export function MultiStepForm({ steps, onSubmit, children }: MultiStepFormProps)
               <span>Submit Application</span>
             </Button>
           ) : (
-            <Button onClick={nextStep} className="bg-primary hover:bg-primary/90 flex items-center space-x-2">
+            <Button
+              onClick={nextStep}
+              disabled={!isStepValid(currentStep)}
+              className="bg-primary hover:bg-primary/90 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <span>Next</span>
               <ChevronRight className="h-4 w-4" />
             </Button>

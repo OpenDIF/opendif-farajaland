@@ -13,7 +13,7 @@ router.post('/graphql', async (req: Request, res: Response) => {
 
     // Forward GraphQL request to the backend API
     const response = await axios.post(
-      process.env.GRAPHQL_API_URL || '',
+      process.env.NDX_GRAPHQL_API_URL || '',
       {
         query,
         variables
@@ -22,7 +22,7 @@ router.post('/graphql', async (req: Request, res: Response) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
       }
     );
 
