@@ -562,6 +562,10 @@ if [ ! -x "run-member-services.sh" ]; then
     chmod +x run-member-services.sh
 fi
 
+# Export M2M credentials for use by run-member-services.sh
+export M2M_CLIENT_ID
+export M2M_CLIENT_SECRET
+
 # Run member services
 ./run-member-services.sh all
 
@@ -578,6 +582,23 @@ echo ""
 print_success "=========================================="
 print_success "All services started successfully!"
 print_success "=========================================="
+echo ""
+
+# Prompt user to access the passport application
+echo ""
+print_info "=========================================="
+print_info "Next Step: Test Passport Application"
+print_info "=========================================="
+echo ""
+print_info "Please open the passport application in your browser:"
+print_info "  URL: http://localhost:3000"
+echo ""
+print_info "Login with the following credentials:"
+print_info "  Username:   nayana"
+print_info "  Password:   Abc12#45"
+echo ""
+print_info "This will allow you to provide consent for the application."
+print_info "=========================================="
 echo ""
 print_warning "Press Ctrl+C to stop all services"
 echo ""

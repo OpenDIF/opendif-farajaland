@@ -11,7 +11,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     sludiNumber: "3434 3434 3434",
-    otp: "",
+    otp: "232323",
   });
   const [step, setStep] = useState<"sludiNumber" | "otp">("sludiNumber");
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,7 @@ export default function Login() {
         "sludi_user",
         JSON.stringify({
           name: "Nuwan Fernando",
-          nic: "199512345678",
+          nic: "nayana@opensource.lk",
           sludiNumber: formData.sludiNumber,
           mobileNumber: "94712345678",
           email: "nuwan@opensource.lk",

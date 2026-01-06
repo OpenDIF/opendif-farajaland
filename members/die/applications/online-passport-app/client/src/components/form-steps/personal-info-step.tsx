@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import {useState, useEffect, useCallback, useRef} from "react"
 import { FormFieldWrapper } from "@/components/form-field-wrapper"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -8,6 +8,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useMultiStepForm } from "@/components/multi-step-form"
+import { usePersonInfo } from "@/hooks/usePersonInfo"
+import { mapPersonInfoToFormData } from "@/lib/map-person-info"
+import { LoadDetailsAlert } from "@/components/load-details-alert"
+import { useToast } from "@/hooks/use-toast"
 
 const sriLankanDistricts = [
   "Ampara",
@@ -38,9 +42,27 @@ const sriLankanDistricts = [
 ]
 
 export function PersonalInfoStep() {
-  const { updateFormData, formData } = useMultiStepForm()
+  const { updateFormData, formData, setStepValid, currentStep } = useMultiStepForm()
+  const { toast } = useToast()
+  const { loadPersonInfo, loading: loadingPersonInfo } = usePersonInfo()
+  const lastValidationRef = useRef<boolean | null>(null)
+
+  // Get NIC from logged-in user
+  const getUserNic = () => {
+    try {
+      const storedUser = localStorage.getItem("sludi_user")
+      if (storedUser) {
+        const user = JSON.parse(storedUser)
+        return user.nic || ""
+      }
+    } catch (error) {
+      console.error("Error parsing user from localStorage:", error)
+    }
+    return ""
+  }
+
   const [personalData, setPersonalData] = useState({
-    nicNumber: "",
+    nic: getUserNic(),
     surname: "",
     otherNames: "",
     permanentAddress: "",
@@ -57,6 +79,50 @@ export function PersonalInfoStep() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // Consider form as interacted since NIC is pre-populated from user account
+  const [hasInteracted, setHasInteracted] = useState(true)
+
+  // Validate all required fields in personal information
+  const validateForm = useCallback(() => {
+    const requiredFields = [
+      "nic",
+      "surname",
+      "otherNames",
+      "permanentAddress",
+      "district",
+      "birthDay",
+      "birthMonth",
+      "birthYear",
+      "birthCertificateNumber",
+      "birthCertificateDistrict",
+      "placeOfBirth",
+      "sex",
+      "profession",
+    ]
+
+    const allFieldsFilled = requiredFields.every((field) => {
+      const value = personalData[field as keyof typeof personalData]
+      return value && String(value).trim() !== ""
+    })
+
+    // NIC is pre-filled from user account, so we trust it's valid
+    // Only validate format if user has manually edited it (if there's an error)
+    const nicValid = personalData.nic && !errors.nic
+
+    return allFieldsFilled && nicValid
+  }, [personalData, errors])
+
+  // Update step validity when form data changes (only if actually different)
+  useEffect(() => {
+    if (hasInteracted) {
+      const isValid = validateForm()
+      // Only call setStepValid if the validation state actually changed
+      if (lastValidationRef.current !== isValid) {
+        lastValidationRef.current = isValid
+        setStepValid(currentStep, isValid)
+      }
+    }
+  }, [personalData, errors, hasInteracted, currentStep, validateForm, setStepValid])
 
   // Calculate age to determine if guardian info is needed
   const calculateAge = () => {
@@ -92,6 +158,7 @@ export function PersonalInfoStep() {
     const newData = { ...personalData, [field]: value }
     setPersonalData(newData)
     updateFormData("personal-info", newData)
+    setHasInteracted(true)
 
     // Clear error when user starts typing
     if (errors[field]) {
@@ -99,13 +166,40 @@ export function PersonalInfoStep() {
     }
 
     // Validate NIC format
-    if (field === "nicNumber" && value && !validateNIC(value)) {
-      setErrors((prev) => ({ ...prev, nicNumber: "Invalid NIC format" }))
+    if (field === "nic" && value && !validateNIC(value)) {
+      setErrors((prev) => ({ ...prev, nic: "Invalid NIC format" }))
     }
+  }
+
+  const handleLoadDetails = async () => {
+    const personInfo = await loadPersonInfo()
+
+    if (!personInfo) {
+      // Error already handled by usePersonInfo hook via toast
+      return
+    }
+
+    // Map NDX data to form structure
+    const mappedData = mapPersonInfoToFormData(personInfo, personalData.nic)
+
+    // Update form state with loaded data
+    const newData = { ...personalData, ...mappedData }
+    setPersonalData(newData)
+    updateFormData("personal-info", newData)
+    setHasInteracted(true)
+
+    // Show success message
+    toast({
+      title: "Details loaded successfully",
+      description: "Your information has been loaded from the National Data Exchange. Please review and update if needed.",
+    })
   }
 
   return (
     <div className="space-y-8">
+      {/* Load Details Alert */}
+      <LoadDetailsAlert onLoadDetails={handleLoadDetails} loading={loadingPersonInfo} />
+
       {/* Basic Personal Information */}
       <div className="space-y-6">
         <h3 className="text-lg font-semibold text-foreground border-b pb-2">Basic Information</h3>
@@ -113,14 +207,15 @@ export function PersonalInfoStep() {
         <FormFieldWrapper
           label="National Identity Card Number"
           required
-          error={errors.nicNumber}
-          description="Enter your 10-digit old NIC (e.g., 123456789V) or 12-digit new NIC"
+          error={errors.nic}
+          description="Your NIC from your registered account"
         >
           <Input
-            placeholder="Enter your NIC number"
-            value={personalData.nicNumber}
-            onChange={(e) => handleInputChange("nicNumber", e.target.value.toUpperCase())}
-            className="uppercase"
+            placeholder="Your NIC"
+            value={personalData.nic}
+            readOnly
+            disabled
+            className="uppercase bg-muted cursor-not-allowed"
           />
         </FormFieldWrapper>
 
