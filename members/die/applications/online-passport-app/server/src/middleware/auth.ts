@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as dotenv from 'dotenv';
+import * as https from "node:https";
 
 dotenv.config();
 
@@ -35,6 +36,10 @@ class TokenManager {
     try {
       const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
 
+      const httpsAgent = new https.Agent({
+        rejectUnauthorized: false, // 👈 trust self-signed certs
+      });
+
       const response = await axios.post<TokenResponse>(
         this.tokenUrl,
         'grant_type=client_credentials',
@@ -42,8 +47,9 @@ class TokenManager {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': `Basic ${credentials}`
-          }
-        }
+          },
+          httpsAgent
+        },
       );
 
       this.token = response.data.access_token;

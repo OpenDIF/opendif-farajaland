@@ -31,9 +31,18 @@ export default function Apply() {
   }, [navigate]);
 
   const handleSubmit = (data: Record<string, any>) => {
-    console.log("Form submitted:", data);
-    // Handle form submission
-    navigate("/success");
+    // Store the application data in localStorage for the success page
+    const submissionData = {
+      ...user,
+      ...data["personal-info"],
+      ...data["review-declaration"],
+      submittedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem("submitted_application", JSON.stringify(submissionData));
+
+    // Redirect to success page
+    navigate("/success", { replace: true });
   };
 
   if (!user) {
