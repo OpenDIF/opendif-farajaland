@@ -110,6 +110,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# WSO2 IDENTITY SERVER CONFIGS
+WSO2_ADMIN_USERNAME="${WSO2_ADMIN_USERNAME:-admin}"
+WSO2_ADMIN_PASSWORD="${WSO2_ADMIN_PASSWORD:-admin}"
+WSO2_ADMIN_AUTH_HEADER=$(echo -n "$WSO2_ADMIN_USERNAME:$WSO2_ADMIN_PASSWORD" | base64)
+
 print_success "NDX infrastructure services started"
 echo ""
 print_info "Running services:"
@@ -172,7 +177,7 @@ print_info "Creating temporary DCR application for Management API access..."
 DCR_RESPONSE=$(curl --silent -X POST https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register \
   --insecure \
   -H "Content-Type: application/json" \
-  -H "Authorization: Basic YWRtaW46YWRtaW4=" \
+  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
   -d '{
     "client_name": "TEMPORARY_DCR_APP",
     "grant_types": ["client_credentials"],
@@ -200,12 +205,104 @@ print_success "Temporary DCR application created successfully!"
 print_info "Temporary Client ID: $DCR_CLIENT_ID"
 echo ""
 
+# Get the ApplicationId, use the endpoint to search for the created application.
+APPLICATION_RESPONSE=$(curl --silent -X GET "https://wso2is:9443/api/server/v1/applications?filter=clientId+eq+$DCR_CLIENT_ID" \
+  --insecure \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
+)
+
+DCR_APPLICATION_ID=$(echo "$APPLICATION_RESPONSE" | jq -r '.applications[0].id')
+
+if [ "$DCR_APPLICATION_ID" = "null" ] || [ -z "$DCR_APPLICATION_ID" ]; then
+    print_error "Failed to extract Client ID from DCR response"
+    print_error "Response was: $APPLICATION_RESPONSE"
+    exit 1
+fi
+
+print_success "Successfully Obtained Application Id of TEMPORARY_DCR_APP"
+print_info "TEMPORARY_DCR_APP Application ID: $DCR_APPLICATION_ID"
+echo ""
+
+# Fetch the id of the Application Authorization category
+APPLICATION_RESOURCE_RESPONSE=$(curl --silent -X GET 'https://wso2is:9443/api/server/v1/api-resources?filter=identifier+eq+%2Fapi%2Fserver%2Fv1%2Fapplications' \
+  --insecure \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
+)
+
+APPLICATION_MANAGEMENT_RESOURCE_ID=$(echo "$APPLICATION_RESOURCE_RESPONSE" | jq -r '.apiResources[0].id')
+
+if [ "$APPLICATION_MANAGEMENT_RESOURCE_ID" = "null" ] || [ -z "$APPLICATION_MANAGEMENT_RESOURCE_ID" ]; then
+    print_error "Failed to extract Application Resource ID From Response"
+    print_error "Response was: $APPLICATION_RESPONSE"
+    exit 1
+fi
+
+print_info "Granting application management permissions to temporary app..."
+
+HTTP_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X POST "https://wso2is:9443/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
+  --insecure \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic YWRtaW46YWRtaW4=" \
+  -d '{
+    "id": "'"$APPLICATION_MANAGEMENT_RESOURCE_ID"'",
+    "policyIdentifier": "RBAC",
+    "scopes": [
+      "internal_application_mgt_create",
+      "internal_application_mgt_update",
+      "internal_application_mgt_view",
+      "internal_application_mgt_delete",
+      "internal_application_mgt_client_secret_create",
+      "internal_application_internal_api_update",
+      "internal_application_business_api_update",
+      "internal_application_mgt_client_secret_view"
+    ]
+  }'
+)
+
+if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "200" ]; then
+    print_error "Failed to grant application management permissions (HTTP $HTTP_STATUS)"
+    exit 1
+fi
+print_success "Granted application management permissions to temporary app."
+
+# Enabling SCIM2 USER CREATION ACCESS FOR THE TEMPORARY DCR APP
+USER_MANAGEMENT_RESOURCE_RESPONSE=$(curl --silent -X GET 'https://wso2is:9443/api/server/v1/api-resources?filter=identifier+eq+%2Fscim2%2FUsers' \
+  --insecure \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
+)
+
+USER_MANAGEMENT_RESOURCE_ID=$(echo "$USER_MANAGEMENT_RESOURCE_RESPONSE" | jq -r '.apiResources[0].id')
+
+if [ "$USER_MANAGEMENT_RESOURCE_ID" = "null" ] || [ -z "$USER_MANAGEMENT_RESOURCE_ID" ]; then
+    print_error "Failed to extract User Management Resource ID From Response"
+    print_error "Response was: $USER_MANAGEMENT_RESOURCE_RESPONSE"
+    exit 1
+fi
+
+USER_AUTHORIZATION_RESPONSE=$(curl --silent -X POST "https://wso2is:9443/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
+  --insecure \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
+  -d '{
+    "id": "'"$USER_MANAGEMENT_RESOURCE_ID"'",
+    "policyIdentifier": "RBAC",
+    "scopes": [
+      "internal_user_mgt_create"
+    ]
+  }'
+)
+
+echo "$USER_AUTHORIZATION_RESPONSE"
+
 # Step 2: Create API Gateway application using DCR endpoint
 print_info "Creating M2M application for API Gateway using DCR endpoint..."
 GATEWAY_DCR_RESPONSE=$(curl --silent -X POST https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register \
   --insecure \
   -H "Content-Type: application/json" \
-  -H "Authorization: Basic YWRtaW46YWRtaW4=" \
+  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
   -d '{
     "client_name": "NDX_API_GATEWAY",
     "grant_types": ["client_credentials", "refresh_token"],
@@ -312,55 +409,12 @@ fi
 print_success "Consent engine routes registered successfully"
 echo ""
 
-# Step 4: Grant permissions to the temporary DCR application
-echo ""
-print_warning "=========================================="
-print_warning "MANUAL STEP REQUIRED: Grant Application Management Permissions"
-print_warning "=========================================="
-echo ""
-print_info "To allow automated creation of the Consent Portal SPA application,"
-print_info "please grant the necessary permissions to the temporary DCR application."
-echo ""
-print_info "Follow these steps:"
-echo ""
-print_info "1. Open WSO2 Identity Server Console: https://wso2is:9443/console"
-print_info "2. Login with credentials: admin / admin"
-print_info "3. Navigate to: Applications"
-print_info "4. Find and click on the application: TEMPORARY_DCR_APP"
-print_info "5. Go to the 'API Authorization' tab"
-print_info "6. Click 'Authorize an API Resource'"
-print_info "7. Select: Application Management API"
-print_info "8. Grant the following scopes:"
-print_info "   - internal_application_mgt_view"
-print_info "   - internal_application_mgt_create"
-print_info "   - internal_application_mgt_update"
-print_info "   - internal_application_mgt_client_secret_view"
-print_info "9. Click 'Finish' to save the permissions"
-echo ""
-print_warning "After granting permissions, the script will automatically create the Consent Portal application."
-echo ""
-
-# Prompt user to confirm they have granted permissions
-while true; do
-    printf "%b" "${BLUE}[CONFIRM]${NC} Have you granted the required permissions? (y/n): "
-    read PERMISSIONS_GRANTED
-
-    if [[ "$PERMISSIONS_GRANTED" =~ ^[Yy]$ ]]; then
-        print_success "Permissions confirmed. Proceeding with application creation..."
-        break
-    elif [[ "$PERMISSIONS_GRANTED" =~ ^[Nn]$ ]]; then
-        print_warning "Please grant the permissions before continuing."
-    else
-        print_error "Invalid input. Please enter 'y' or 'n'."
-    fi
-done
-
 # First, obtain a new access token with the updated permissions
 TOKEN_RESPONSE=$(curl --silent -X POST https://wso2is:9443/oauth2/token \
   --insecure \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -u "$DCR_CLIENT_ID:$DCR_CLIENT_SECRET" \
-  -d "grant_type=client_credentials&scope=internal_application_mgt_view internal_application_mgt_create internal_application_mgt_update internal_application_mgt_client_secret_view")
+  -d "grant_type=client_credentials&scope=internal_application_mgt_view internal_application_mgt_create internal_application_mgt_update internal_application_mgt_client_secret_view internal_user_mgt_create")
 
 ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
 
@@ -531,13 +585,6 @@ print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 
 echo ""
 
-# Note: Not deleting the temporary DCR application so it can be used for manual testing
-if [ ! -z "$DCR_CLIENT_ID" ]; then
-    print_warning "Temporary DCR application NOT deleted for manual testing:"
-    print_info "  Client ID: $DCR_CLIENT_ID"
-    print_info "  You can use these credentials to test Management API calls via Postman"
-    print_info "  To delete manually: DELETE https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
-fi
 
 echo ""
 print_success "=========================================="
@@ -547,6 +594,64 @@ echo ""
 print_info "API Gateway Client ID: $CLIENT_ID"
 print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 echo ""
+
+# Create a mock user using SCIM2 API
+print_info "Creating mock user via SCIM2 API..."
+SCIM_USER_RESPONSE=$(
+  curl --silent -X POST https://wso2is:9443/scim2/Users \
+    --insecure \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    -d @- <<EOF
+{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "userName": "nayana",
+  "name": {
+    "givenName": "Nayana",
+    "familyName": "Samaranayake"
+  },
+  "emails": [
+    {
+      "value": "nayana@opensource.lk",
+      "primary": true
+    }
+  ],
+  "password": "${MOCK_USER_PASSWORD:-Abc12#45}",
+  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+    "employeeNumber": "EMP001"
+  }
+}
+EOF
+)
+
+SCIM_USER_ID=$(echo "$SCIM_USER_RESPONSE" | jq -r '.id')
+
+if [ "$SCIM_USER_ID" = "null" ] || [ -z "$SCIM_USER_ID" ]; then
+    print_warning "Failed to create user via SCIM2 API (user may already exist)"
+    print_info "Response: $SCIM_USER_RESPONSE"
+else
+    print_success "Mock user created successfully via SCIM2 API!"
+    print_info "User ID: $SCIM_USER_ID"
+    print_info "Username: nayana@opensource.lk"
+    print_info "Password: Abc12#45"
+fi
+echo ""
+
+# Delete the temporary DCR application now that setup is complete
+if [ -n "$DCR_CLIENT_ID" ]; then
+    print_info "Deleting temporary DCR application..."
+    DELETE_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X DELETE "https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID" \
+      --insecure \
+      -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER")
+    if [ "$DELETE_STATUS" = "204" ]; then
+        print_success "Temporary DCR application deleted successfully"
+        print_info "  Client ID: $DCR_CLIENT_ID"
+    else
+        print_warning "Failed to delete temporary DCR application (HTTP status: $DELETE_STATUS)"
+        print_info "  Client ID: $DCR_CLIENT_ID"
+        print_info "  You can delete it manually: DELETE https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
+    fi
+fi
 
 # Start member services
 print_info "Starting member data source services..."
@@ -569,16 +674,6 @@ export M2M_CLIENT_SECRET
 # Run member services
 ./run-member-services.sh all
 
-echo ""
-print_success "=========================================="
-print_success "Passport Application (M2M) Credentials"
-print_success "=========================================="
-print_info "Use these credentials to call the API:"
-echo ""
-print_info "Client ID:     $M2M_CLIENT_ID"
-print_info "Client Secret: $M2M_CLIENT_SECRET"
-print_success "=========================================="
-echo ""
 print_success "=========================================="
 print_success "All services started successfully!"
 print_success "=========================================="
@@ -601,7 +696,6 @@ print_info "This will allow you to provide consent for the application."
 print_info "=========================================="
 echo ""
 print_warning "Press Ctrl+C to stop all services"
-echo ""
 
 # Keep script running until interrupted
 print_info "All services are running. Monitoring..."
