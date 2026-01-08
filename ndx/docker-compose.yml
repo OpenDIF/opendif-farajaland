@@ -126,10 +126,55 @@ services:
     networks:
       - exchange-network
 
+  portal-backend:
+    depends_on:
+      - postgres
+      - wso2is
+    image: ghcr.io/opendif/opendif-mvp/portals-backend:latest
+    platform: linux/amd64
+    container_name: portal-backend-${ENVIRONMENT:-local}
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-local}
+      - PORT=${PORTAL_BACKEND_PORT:-8083}
+      - HOST=${HOST:-0.0.0.0}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-text}
+      - JWT_SECRET=${JWT_SECRET:-local-secret-key}
+      - CORS=${CORS:-true}
+      - RATE_LIMIT=${RATE_LIMIT:-1000}
+      # Database configuration
+      - CHOREO_DB_PORTAL_BACKEND_HOSTNAME=${PORTAL_BACKEND_DB_HOST:-postgres}
+      - CHOREO_DB_PORTAL_BACKEND_PORT=${PORTAL_BACKEND_DB_PORT:-5432}
+      - CHOREO_DB_PORTAL_BACKEND_USERNAME=${PORTAL_BACKEND_DB_USERNAME:-postgres}
+      - CHOREO_DB_PORTAL_BACKEND_PASSWORD=${PORTAL_BACKEND_DB_PASSWORD:-exchange}
+      - CHOREO_DB_PORTAL_BACKEND_DATABASENAME=${PORTAL_BACKEND_DB_NAME:-exchange_service}
+      - DB_SSLMODE=${DB_SSLMODE:-require}
+      - RUN_MIGRATION=${RUN_MIGRATION:-false}
+      # Identity Provider configuration
+      - IDP_BASE_URL=${IDP_BASE_URL:-https://wso2is:9443}
+      - IDP_ISSUER=${IDP_ISSUER:-https://wso2is:9443/oauth2/token}
+      - IDP_JWKS_URL=${IDP_JWKS_URL:-http://wso2is:9443/oauth2/jwks}
+      # Service URLs
+      - CONSENT_ENGINE_URL=${CONSENT_ENGINE_URL:-http://consent-engine:8081}
+      - ORCHESTRATION_ENGINE_URL=${ORCHESTRATION_ENGINE_URL:-http://orchestration-engine:4000}
+      - API_GATEWAY_URL=${API_GATEWAY_URL:-http://api-gateway:9080}
+    ports:
+      - "${PORTAL_BACKEND_PORT:-8083}:8083"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
   consent-portal:
     depends_on:
       - postgres
       - wso2is
+      - portal-backend
     image: mushrafmim/opendif-consent-portal:latest
     ports:
       - "${PORT_CP:-5173}:80"
