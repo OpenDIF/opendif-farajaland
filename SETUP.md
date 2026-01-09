@@ -41,8 +41,8 @@ The following are only required if you want to run and modify the data source se
 - **Ports**: Ensure the following ports are available:
   - **Core Services**
     - `4000` - Orchestration Engine
-    - `9080, 9180` - API Gateway (APISIX)
-    - `9443, 9673` - FUDI (WSO2 Identity Server)
+    - `9081, 9180` - API Gateway (APISIX)
+    - `9444, 9673` - FUDI (WSO2 Identity Server)
     - `5173` - Consent Portal (Frontend)
   - **Member Services**
     - `8080` - RGD API
@@ -155,10 +155,10 @@ Client Secret:
   • Use these credentials to call the publicly exposed endpoints
 
 Token Endpoint:
-https://wso2is:9443/oauth2/token
+https://wso2is:9444/oauth2/token
 
 Public API Gateway:
-http://localhost:9080/public/*
+http://localhost:9081/public/*
 ============================================
 
 ==========================================
@@ -191,7 +191,7 @@ All services are running. Monitoring...
 3. **Access Points**:
    - **Passport Application**: `http://localhost:3000` - Main application for testing consent flows
    - **Consent Portal**: `http://localhost:5173` - Standalone consent management interface
-   - **API Gateway**: `http://localhost:9080/public/*` - Public GraphQL endpoint
+   - **API Gateway**: `http://localhost:9081/public/*` - Public GraphQL endpoint
 
 4. **Keep Running**: The script will continue running and monitoring services. Press `Ctrl+C` when you want to stop all services.
 
@@ -204,7 +204,7 @@ All services are running. Monitoring...
 Try a simple GraphQL query to fetch person information:
 
 ```bash
-curl -X POST http://localhost:9080/public/graphql \
+curl -X POST http://localhost:9081/public/graphql \
   -H "Content-Type: application/json" \
   -d '{
     "query": "{ personInfo(nic: \"nayana@opensource.lk\") { fullName dateOfBirth address } }"
@@ -259,7 +259,7 @@ docker-compose ps
 
 You'll need to manually create OAuth2 applications in WSO2 IS:
 
-1. Access the WSO2 IS console at `https://wso2is:9443/console`
+1. Access the WSO2 IS console at `https://wso2is:9444/console`
 2. Login with `admin`/`admin`
 3. Create an M2M application for the API Gateway
 4. Create an SPA application for the Consent Portal
@@ -285,7 +285,7 @@ curl --location --request PUT http://localhost:9180/apisix/admin/routes \
     },
     "plugins": {
       "openid-connect": {
-        "discovery": "https://wso2is:9443/oauth2/token/.well-known/openid-configuration",
+        "discovery": "https://wso2is:9444/oauth2/token/.well-known/openid-configuration",
         "bearer_only": true,
         "client_id": "YOUR_CLIENT_ID",
         "client_secret": "YOUR_CLIENT_SECRET",
@@ -335,8 +335,8 @@ sudo systemctl start docker
 
 **Error: "Port already in use"**
 ```bash
-# Find and kill the process using the port (example for port 9080):
-lsof -ti:9080 | xargs kill -9
+# Find and kill the process using the port (example for port 9081):
+lsof -ti:9081 | xargs kill -9
 
 # Or change the port in docker-compose.yml
 ```

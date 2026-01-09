@@ -108,7 +108,7 @@ apisix:
   disable_sync_configuration_during_start: false
   worker_startup_time_threshold: 60
   node_listen:
-  - 9080
+  - 9081
   enable_dev_mode: false
   enable_reuseport: true
   enable_ipv6: true
@@ -136,7 +136,7 @@ apisix:
     enable: false
     listen:
     - enable_http3: false
-      port: 9443
+      port: 9444
     ssl_ciphers: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
     ssl_session_tickets: false
     ssl_protocols: TLSv1.2 TLSv1.3

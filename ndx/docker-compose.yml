@@ -18,7 +18,7 @@ services:
       - etcd
     image: apache/apisix:latest
     ports:
-      - "9080:9080"
+      - "9081:9081"
       - "9180:9180"
     networks:
       - exchange-network
@@ -29,15 +29,15 @@ services:
     image: wso2/wso2is:7.2.0   # replace with your desired version
     container_name: wso2is
     ports:
-      - "9443:9443"   # HTTPS / admin console
-      - "9763:9763"   # HTTP (optional)
+      - "9444:9444"   # HTTPS / admin console
+      - "9764:9764"   # HTTP (optional)
     environment:
       - TZ=Asia/Colombo       # optional, set timezone
       - SERVER_HOSTNAME=wso2is
     volumes:
       - ./config/wso2is/deployment.toml:/home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
     healthcheck:
-      test: [ "CMD", "curl", "-k", "-f", "https://localhost:9443/oauth2/token/.well-known/openid-configuration" ]
+      test: [ "CMD", "curl", "-k", "-f", "https://localhost:9444/oauth2/token/.well-known/openid-configuration" ]
       interval: 5s
       timeout: 120s
       start_period: 100s
@@ -48,7 +48,7 @@ services:
   policy-decision-point:
     depends_on:
       - postgres
-    image: ghcr.io/opendif/opendif-mvp/policy-decision-point:latest
+    image: ghcr.io/opendif/opendif-core/policy-decision-point:latest
     platform: linux/amd64
     container_name: pdp-${ENVIRONMENT:-local}
     environment:
@@ -81,7 +81,8 @@ services:
   consent-engine:
     depends_on:
       - postgres
-    image: ghcr.io/opendif/opendif-mvp/consent-engine:latest
+      - wso2is
+    image: ghcr.io/opendif/opendif-core/consent-engine:latest
     platform: linux/amd64
     container_name: ce-${ENVIRONMENT:-local}
     environment:
@@ -94,11 +95,11 @@ services:
       - CORS=${CORS:-true}
       - RATE_LIMIT=${RATE_LIMIT:-1000}
       # Database configuration
-      - CHOREO_DB_CE_HOSTNAME=${CE_DB_HOST:-localhost}
-      - CHOREO_DB_CE_PORT=${CE_DB_PORT:-5432}
-      - CHOREO_DB_CE_USERNAME=${CE_DB_USERNAME:-postgres}
-      - CHOREO_DB_CE_PASSWORD=${CE_DB_PASSWORD:-password}
-      - CHOREO_DB_CE_DATABASENAME=${CE_DB_NAME:-consent_engine}
+      - CHOREO_OPENDIF_DATABASE_HOSTNAME=${CE_DB_HOST:-localhost}
+      - CHOREO_OPENDIF_DATABASE_PORT=${CE_DB_PORT:-5432}
+      - CHOREO_OPENDIF_DATABASE_USERNAME=${CE_DB_USERNAME:-postgres}
+      - CHOREO_OPENDIF_DATABASE_PASSWORD=${CE_DB_PASSWORD:-password}
+      - CHOREO_OPENDIF_DATABASE_DATABASENAME=${CE_DB_NAME:-consent_engine}
       - DB_SSLMODE=${DB_SSLMODE:-require}
       - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-25}
       - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-5}
@@ -109,10 +110,11 @@ services:
       - DB_RETRY_ATTEMPTS=${DB_RETRY_ATTEMPTS:-3}
       - DB_RETRY_DELAY=${DB_RETRY_DELAY:-1s}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
-      - ASGARDEO_ORG_NAME=${IDP_ORG_NAME:-lankasoftwarefoundation}
+      - ASGARDEO_ORG_NAME=${IDP_ORG_NAME:-Super}
       - ASGARDEO_ISSUER=${IDP_ISSUER:-https://api.asgardeo.io/t/lankasoftwarefoundation/oauth2/token}
       - ASGARDEO_AUDIENCE=${IDP_AUDIENCE:-Mpjt5VUqDPL8iVByyFcMDregz6Ea}
-      - ASGARDEO_JWKS_URL=${IDP_JWKS_URL:-http://wso2is:9443/oauth2/jwks}
+      - ASGARDEO_JWKS_URL=${IDP_JWKS_URL:-http://wso2is:9444/oauth2/jwks}
+      - CORS_ALLOWED_ORIGINS=${CONSENT_PORTAL_URL:-http://localhost:5173}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
       interval: 30s
@@ -127,22 +129,22 @@ services:
     depends_on:
       - postgres
       - wso2is
-    image: mushrafmim/opendif-consent-portal:latest
+    image: mushrafmim/consent-portal:latest
     ports:
       - "${PORT_CP:-5173}:80"
     environment:
-      - VITE_API_URL=http://localhost:9080
+      - VITE_API_URL=http://localhost:9081/api/v1
       - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
-      # NOTE: The default value for VITE_BASE_URL uses 'https://wso2is:9443'.
+      # NOTE: The default value for VITE_BASE_URL uses 'https://wso2is:9444'.
       # Make sure 'wso2is' resolves correctly in your browser context (e.g., by adding it to /etc/hosts).
       # See SETUP.md for more details.
-      - VITE_BASE_URL=${IDP_BASE_URL:-https://wso2is:9443}
+      - VITE_BASE_URL=${IDP_BASE_URL:-https://wso2is:9444}
       - VITE_SCOPE=openid profile email
       - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
       - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
 
   orchestration-engine:
-    image: ghcr.io/opendif/opendif-mvp/orchestration-engine:latest
+    image: ghcr.io/opendif/opendif-core/orchestration-engine:latest
     platform: linux/amd64
     container_name: oe-${ENVIRONMENT:-local}
     environment:
@@ -174,6 +176,7 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./opendif_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./consent_engine_schema.sql:/docker-entrypoint-initdb.d/02_consent_engine_schema.sql
     networks:
       - exchange-network
     restart: unless-stopped

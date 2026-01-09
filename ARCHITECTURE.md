@@ -34,23 +34,23 @@ OpenDIF Farajaland implements a **federated data exchange architecture** that en
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Client Applications                       │
-│                    (e.g., Passport Application)                  │
+│                        Client Applications                      │
+│                    (e.g., Passport Application)                 │
 └────────────────────────────┬────────────────────────────────────┘
                              │ GraphQL Query
                              │ (with citizen context)
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      API Gateway (APISIX)                        │
-│              Authentication, Rate Limiting, Routing              │
-│                         Port: 9080                               │
+│                      API Gateway (APISIX)                       │
+│              Authentication, Rate Limiting, Routing             │
+│                         Port: 9081                              │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Orchestration Engine (OE)                      │
-│              GraphQL Federation & Query Planning                 │
-│                         Port: 4000                               │
+│                   Orchestration Engine (OE)                     │
+│              GraphQL Federation & Query Planning                │
+│                         Port: 4000                              │
 └──────┬──────────────────────┬────────────────────┬──────────────┘
        │                      │                    │
        ↓                      ↓                    ↓
@@ -61,19 +61,19 @@ OpenDIF Farajaland implements a **federated data exchange architecture** that en
 │ Port: 8081   │    │  Port: 8082     │   │  │ DRP (9090) │  │
 │              │    │                 │   │  └────────────┘  │
 └──────────────┘    └─────────────────┘   │  ┌────────────┐  │
-                                           │  │ RGD (8080) │  │
-                                           │  └────────────┘  │
-                                           │  ┌────────────┐  │
-                                           │  │ DMT (TBD)  │  │
-                                           │  └────────────┘  │
-                                           └──────────────────┘
+                                          │  │ RGD (8080) │  │
+                                          │  └────────────┘  │
+                                          │  ┌────────────┐  │
+                                          │  │ DMT (TBD)  │  │
+                                          │  └────────────┘  │
+                                          └──────────────────┘
        ┌──────────────────────┴─────────────────────┐
-       ↓                                             ↓
+       ↓                                            ↓
 ┌──────────────┐                            ┌──────────────┐
 │  PostgreSQL  │                            │  FUDI/WSO2   │
 │   Database   │                            │ Identity Srvr│
 │              │                            │              │
-│ Port: 5432   │                            │ Port: 9443   │
+│ Port: 5432   │                            │ Port: 9444   │
 └──────────────┘                            └──────────────┘
 ```
 
@@ -122,7 +122,7 @@ Client → GraphQL Query (retry) → API Gateway → Data Response
 - **Logging & Monitoring**: Track all API calls
 
 **Ports**:
-- `9080`: HTTP/HTTPS traffic (client-facing)
+- `9081`: HTTP/HTTPS traffic (client-facing)
 - `9180`: Admin API (internal management)
 
 **Security Features**:
@@ -231,23 +231,23 @@ Request Context → Policy Engine → Evaluate Rules → Decision (PERMIT/DENY)
 
 The NDX is the core infrastructure layer providing orchestration, consent management, and policy enforcement.
 
-| Component | Technology | Port | Purpose | Status |
-|-----------|-----------|------|---------|--------|
-| **Orchestration Engine** | Go | 4000 | GraphQL federation, query planning, data aggregation | Production |
-| **Consent Engine** | Go | 8081 | Citizen consent management, verification | Production |
-| **Policy Decision Point** | Go | 8082 | Access control policy evaluation (RBAC/ABAC) | Production |
-| **API Gateway** | Apache APISIX | 9080/9180 | Request routing, rate limiting, authentication | Production |
-| **Database** | PostgreSQL | 5432 | Persistent storage for consent, policies, audit logs | Production |
-| **Service Registry** | etcd | 2379 | Service discovery, configuration management | Production |
+| Component | Technology | Port      | Purpose | Status |
+|-----------|-----------|-----------|---------|--------|
+| **Orchestration Engine** | Go | 4000      | GraphQL federation, query planning, data aggregation | Production |
+| **Consent Engine** | Go | 8081      | Citizen consent management, verification | Production |
+| **Policy Decision Point** | Go | 8082      | Access control policy evaluation (RBAC/ABAC) | Production |
+| **API Gateway** | Apache APISIX | 9081/9180 | Request routing, rate limiting, authentication | Production |
+| **Database** | PostgreSQL | 5432      | Persistent storage for consent, policies, audit logs | Production |
+| **Service Registry** | etcd | 2379      | Service discovery, configuration management | Production |
 
 ### Supporting Infrastructure
 
 | Component | Technology | Port | Purpose | Status |
 |-----------|-----------|------|---------|--------|
-| **FUDI (Identity Provider)** | WSO2 Identity Server | 9443 | Citizen authentication, OAuth2/OIDC | Optional |
-| **Monitoring** | Prometheus + Grafana | TBD | Metrics collection and visualization | Planned |
-| **Logging** | ELK Stack | TBD | Centralized log aggregation | Planned |
-| **Tracing** | Jaeger | TBD | Distributed request tracing | Planned |
+| **FUDI (Identity Provider)** | WSO2 Identity Server | 9444 | Citizen authentication, OAuth2/OIDC | Optional |
+| **Monitoring** | Prometheus + Grafana | TBD  | Metrics collection and visualization | Planned |
+| **Logging** | ELK Stack | TBD  | Centralized log aggregation | Planned |
+| **Tracing** | Jaeger | TBD  | Distributed request tracing | Planned |
 
 ---
 
