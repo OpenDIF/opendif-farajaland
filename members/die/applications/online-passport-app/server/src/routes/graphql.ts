@@ -8,8 +8,6 @@ router.post('/graphql', async (req: Request, res: Response) => {
   try {
     const { query, variables } = req.body;
 
-    console.log('GraphQL request:', query, variables);
-
     // Get OAuth2 token
     const token = await tokenManager.getToken();
 

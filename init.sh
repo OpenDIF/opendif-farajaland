@@ -95,7 +95,7 @@ echo ""
 
 
 # Detect machine IP address for Rancher Desktop compatibility
-print_info "Detecting machine IP address for WSO2 Identity Server..."
+print_info "Detecting host machine IP address..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS - try different interfaces
     HOST_IP=$(ipconfig getifaddr en0 2>/dev/null)
@@ -111,7 +111,7 @@ if [ -z "$HOST_IP" ]; then
     print_warning "Could not detect machine IP address, using localhost"
     HOST_IP="localhost"
 else
-    print_success "Using WSO2 Identity Server at: $WSO2IS_URL"
+    print_success "Detected the Host Machine IP: $HOST_IP"
 fi
 echo ""
 
@@ -266,7 +266,7 @@ fi
 
 print_info "Granting application management permissions to temporary app..."
 
-HTTP_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X POST "https://wso2is:9443/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
+HTTP_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X POST "https://${WSO2IS_URL}/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
@@ -434,6 +434,8 @@ fi
 print_success "Consent engine routes registered successfully"
 echo ""
 
+
+print_info "Obtaining Access token for performing application operations"
 # First, obtain a new access token with the updated permissions
 TOKEN_RESPONSE=$(curl --silent -X POST https://"$WSO2IS_URL"/oauth2/token \
   --insecure \
@@ -519,7 +521,6 @@ echo "$M2M_DETAILS_BODY"
 
 if [ "$M2M_DETAILS_HTTP_STATUS" != "200" ]; then
     print_error "Failed to retrieve M2M application details (HTTP $M2M_DETAILS_HTTP_STATUS)"
-    print_error "Response: $M2M_DETAILS_BODY"
     exit 1
 fi
 

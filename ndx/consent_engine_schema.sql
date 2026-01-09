@@ -8,7 +8,7 @@
 
 -- Create the consent_records table if it doesn't exist
 CREATE TABLE IF NOT EXISTS consent_records (
-                                               consent_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    consent_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id VARCHAR(255) NOT NULL,
     owner_email VARCHAR(255) NOT NULL,
     app_id VARCHAR(255) NOT NULL,
@@ -19,12 +19,12 @@ CREATE TABLE IF NOT EXISTS consent_records (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     pending_expires_at TIMESTAMP WITH TIME ZONE,
     grant_expires_at TIMESTAMP WITH TIME ZONE,
-                                   grant_duration VARCHAR(50) NOT NULL,
+    grant_duration VARCHAR(50) NOT NULL,
     fields JSONB NOT NULL,
     session_id VARCHAR(255),
     consent_portal_url TEXT NOT NULL,
     updated_by VARCHAR(255)
-    );
+);
 
 -- Create partial unique index for active consents (pending or approved)
 -- This enforces that only one active consent can exist per (owner_id, owner_email, app_id)

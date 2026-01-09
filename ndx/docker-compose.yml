@@ -111,7 +111,7 @@ services:
       - DB_RETRY_DELAY=${DB_RETRY_DELAY:-1s}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
       - ASGARDEO_ORG_NAME=${IDP_ORG_NAME:-Super}
-      - ASGARDEO_ISSUER=${IDP_ISSUER:-https://api.asgardeo.io/t/lankasoftwarefoundation/oauth2/token}
+      - ASGARDEO_ISSUER=${IDP_ISSUER:-https://wso2is:9444/oauth2/token}
       - ASGARDEO_AUDIENCE=${IDP_AUDIENCE:-Mpjt5VUqDPL8iVByyFcMDregz6Ea}
       - ASGARDEO_JWKS_URL=${IDP_JWKS_URL:-http://wso2is:9444/oauth2/jwks}
       - CORS_ALLOWED_ORIGINS=${CONSENT_PORTAL_URL:-http://localhost:5173}
