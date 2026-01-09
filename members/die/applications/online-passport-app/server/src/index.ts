@@ -32,7 +32,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
   console.log(`📦 Serving React app from ${clientBuildPath}`);
   console.log(`🔌 API endpoints available at http://localhost:${PORT}/api`);

@@ -293,8 +293,8 @@ run_die() {
         -p 3000:3000 \
         -e "CLIENT_ID=${M2M_CLIENT_ID}" \
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
-        -e "NDX_GRAPHQL_API_URL=http://host.docker.internal:9080/public/graphql" \
-        -e "TOKEN_URL=https://host.docker.internal:9443/oauth2/token" \
+        -e "NDX_GRAPHQL_API_URL=http://${HOST_IP}:9081/public/graphql" \
+        -e "TOKEN_URL=https://${HOST_IP}:9444/oauth2/token" \
         --restart unless-stopped \
         "$DIE_IMAGE"
 

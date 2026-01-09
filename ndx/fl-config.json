@@ -1,6 +1,6 @@
 {
   "environment": "local",
-  "ceUrl": "http://consent-engine:8081",
+  "ceUrl": "http://consent-engine:8081/internal/api/v1",
   "pdpUrl": "http://policy-decision-point:8082",
   "providers": [
     {
@@ -15,7 +15,7 @@
     },
     {
       "providerKey": "rgd",
-      "schemaId": "rgd-schema-v1",
+      "schemaId": "abc-212",
       "providerUrl": "http://host.docker.internal:8080/graphql",
       "auth": {
         "type": "oauth2",

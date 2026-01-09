@@ -235,30 +235,6 @@ FROM ((public.audit_logs
 ALTER VIEW public.audit_logs_with_provider_consumer OWNER TO exchange;
 
 --
--- Name: consent_records; Type: TABLE; Schema: public; Owner: exchange
---
-
-CREATE TABLE public.consent_records (
-                                        consent_id character varying(255) NOT NULL,
-                                        owner_id character varying(255) NOT NULL,
-                                        owner_email character varying(255) NOT NULL,
-                                        app_id character varying(255) NOT NULL,
-                                        status character varying(50) NOT NULL,
-                                        type character varying(50) NOT NULL,
-                                        created_at timestamp with time zone NOT NULL,
-                                        updated_at timestamp with time zone NOT NULL,
-                                        expires_at timestamp with time zone NOT NULL,
-                                        grant_duration character varying(50) NOT NULL,
-                                        fields text[] NOT NULL,
-                                        session_id character varying(255) NOT NULL,
-                                        consent_portal_url text,
-                                        updated_by character varying(255)
-);
-
-
-ALTER TABLE public.consent_records OWNER TO exchange;
-
---
 -- Name: members; Type: TABLE; Schema: public; Owner: exchange
 --
 
@@ -427,18 +403,6 @@ dfcd576f-cf45-40ce-aca1-c5cd02250983	2025-10-21 03:29:02.811146+00	success	query
 44e297bf-3166-4f5f-ace2-13cb76106359	2025-10-21 03:33:22.697695+00	success	{"query": "query { testUpdatedMiddleware }"}	passport-app	drp-schema-v1	\N	\N
 \.
 
-
---
--- Data for Name: consent_records; Type: TABLE DATA; Schema: public; Owner: exchange
---
-
-COPY public.consent_records (consent_id, owner_id, owner_email, app_id, status, type, created_at, updated_at, expires_at, grant_duration, fields, session_id, consent_portal_url, updated_by) FROM stdin;
-consent_10b3a51a	test@opensource.lk	test@opensource.lk	passport-app	pending	realtime	2025-11-03 03:43:09.181518+00	2025-11-03 03:47:56.611375+00	2025-11-03 04:47:56.611375+00	PT1H	{personInfo.permanentAddress,personInfo.fullName,personInfo.nic,personInfo.hello}	session_123	https://64de011b-df46-423d-8e33-814b5cc60339.e1-us-east-azure.choreoapps.dev/?consent_id=consent_10b3a51a	test@opensource.lk
-consent_50372597	hello@opensource.lk	hello@opensource.lk	passport-app	pending	realtime	2025-11-03 03:48:07.883343+00	2025-11-03 03:48:07.883343+00	2025-11-03 04:48:07.883343+00	PT1H	{personInfo.permanentAddress,personInfo.fullName,personInfo.nic,personInfo.hello}	session_123	https://64de011b-df46-423d-8e33-814b5cc60339.e1-us-east-azure.choreoapps.dev/?consent_id=consent_50372597	hello@opensource.lk
-consent_85ae2544	admin@ndx.gov.lk	admin@ndx.gov.lk	passport-app	pending	realtime	2025-11-03 04:09:53.660416+00	2025-11-03 04:09:53.660416+00	2025-11-03 05:09:53.660416+00	1h	{getPersonInfo.name,person.fullName,person.otherNames,person.profession,person.permanentAddress,getPersonInfo.birthDate,getPersonInfo.sex,getPersonInfo.brNo,getPersonInfo.district,getPersonInfo.birthPlace}	session_123	https://64de011b-df46-423d-8e33-814b5cc60339.e1-us-east-azure.choreoapps.dev/?consent_id=consent_85ae2544	admin@ndx.gov.lk
-\.
-
-
 --
 -- Data for Name: members; Type: TABLE DATA; Schema: public; Owner: exchange
 --
@@ -549,14 +513,6 @@ ALTER TABLE ONLY public.applications
 
 ALTER TABLE ONLY public.audit_logs
     ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
-
-
---
--- Name: consent_records consent_records_pkey; Type: CONSTRAINT; Schema: public; Owner: exchange
---
-
-ALTER TABLE ONLY public.consent_records
-    ADD CONSTRAINT consent_records_pkey PRIMARY KEY (consent_id);
 
 
 --
@@ -701,62 +657,6 @@ CREATE INDEX idx_audit_logs_status ON public.audit_logs USING btree (status);
 --
 
 CREATE INDEX idx_audit_logs_timestamp ON public.audit_logs USING btree ("timestamp");
-
-
---
--- Name: idx_consent_records_app_id; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_consent_records_app_id ON public.consent_records USING btree (app_id);
-
-
---
--- Name: idx_consent_records_created_at; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_consent_records_created_at ON public.consent_records USING btree (created_at);
-
-
---
--- Name: idx_consent_records_expires_at; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_consent_records_expires_at ON public.consent_records USING btree (expires_at);
-
-
---
--- Name: idx_consent_records_owner_email; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_consent_records_owner_email ON public.consent_records USING btree (owner_email);
-
-
---
--- Name: idx_consent_records_owner_id; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_consent_records_owner_id ON public.consent_records USING btree (owner_id);
-
-
---
--- Name: idx_consent_records_pending_lookup; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_consent_records_pending_lookup ON public.consent_records USING btree (owner_id, owner_email, app_id, status) WHERE ((status)::text = 'pending'::text);
-
-
---
--- Name: idx_consent_records_status; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_consent_records_status ON public.consent_records USING btree (status);
-
-
---
--- Name: idx_consent_records_unique_pending; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE UNIQUE INDEX idx_consent_records_unique_pending ON public.consent_records USING btree (owner_id, app_id) WHERE ((status)::text = 'pending'::text);
 
 
 --
