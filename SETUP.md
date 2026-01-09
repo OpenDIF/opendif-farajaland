@@ -39,15 +39,16 @@ The following are only required if you want to run and modify the data source se
 - **RAM**: Minimum 4GB available (8GB recommended)
 - **Disk Space**: At least 10GB free
 - **Ports**: Ensure the following ports are available:
-  - `2379, 2380` - etcd
-  - `4000` - Orchestration Engine
-  - `5432` - PostgreSQL
-  - `8080` - RGD API
-  - `8081` - Consent Engine
-  - `8082` - Policy Decision Point
-  - `9080, 9180` - API Gateway (APISIX)
-  - `9090` - DRP API Adapter
-  - `9443` - FUDI (WSO2 Identity Server)
+  - **Core Services**
+    - `4000` - Orchestration Engine
+    - `9080, 9180` - API Gateway (APISIX)
+    - `9443, 9673` - FUDI (WSO2 Identity Server)
+    - `5173` - Consent Portal (Frontend)
+  - **Member Services**
+    - `8080` - RGD API
+    - `9090` - DRP API
+    - `9091` - DRP API Adapter
+    - `3000` - DIE Passport Application (Frontend)
 
 ## Quick Start
 
@@ -111,106 +112,23 @@ The `init.sh` script automates the entire setup process:
    - FUDI/WSO2 Identity Server
 3. ✅ Waits for services to be healthy
 4. ✅ Creates temporary DCR application for Management API access
-5. ✅ Creates API Gateway M2M application
-6. ✅ Registers API routes in APISIX Gateway
-7. ⏸️ **Pauses and prompts you to authorize the TEMPORARY_DCR_APP** (see next section)
+5. ✅ Automatically grants necessary API permissions to the DCR application
+6. ✅ Creates API Gateway M2M application
+7. ✅ Registers API routes in APISIX Gateway
 8. ✅ Creates Consent Portal SPA application
 9. ✅ Creates Passport Application (M2M) for user access
-10. ✅ Starts member data source services:
+10. ✅ Creates a mock user automatically (username: nayana@opensource.lk)
+11. ✅ Starts member data source services:
     - RGD API (Python/FastAPI)
     - DRP API Adapter (Ballerina)
-11. ✅ **Displays Passport Application credentials for immediate use**
+12. ✅ Starts client applications:
+    - Passport Application Frontend (http://localhost:3000)
+    - Consent Portal Frontend (http://localhost:5173)
+13. ✅ **Displays Passport Application credentials and next steps**
 
-**Important:** During execution, the script will pause and display instructions for a manual step. You must complete this step before the script can continue.
+**The entire setup process is now fully automated - no manual steps required!**
 
-### 5. Authorize TEMPORARY_DCR_APP (Required During Script Execution)
-
-When the `init.sh` script reaches the application setup phase, it will **pause** and display the following prompt:
-
-```
-==========================================
-MANUAL STEP REQUIRED: Grant Application Management Permissions
-==========================================
-
-To allow automated creation of the Consent Portal SPA application,
-please grant the necessary permissions to the temporary DCR application.
-
-Follow these steps:
-
-1. Open WSO2 Identity Server Console: https://wso2is:9443/console
-2. Login with credentials: admin / admin
-3. Navigate to: Applications
-4. Find and click on the application: TEMPORARY_DCR_APP
-5. Go to the 'API Authorization' tab
-6. Click 'Authorize an API Resource'
-7. Select: Application Management API
-8. Grant the following scopes:
-   - internal_application_mgt_view
-   - internal_application_mgt_create
-   - internal_application_mgt_update
-   - internal_application_mgt_client_secret_view
-9. Click 'Finish' to save the permissions
-
-After granting permissions, the script will automatically create the Consent Portal application.
-```
-
-**Steps to complete this authorization:**
-
-1. When you see the prompt, open a new browser tab and navigate to:
-   ```
-   https://wso2is:9443/console
-   ```
-
-2. Login with the default admin credentials:
-   - Username: `admin`
-   - Password: `admin`
-
-3. In the WSO2 IS console:
-   - Click on **Applications** in the left sidebar
-   - Find and click on **TEMPORARY_DCR_APP**
-   - Go to the **API Authorization** tab
-   - Click **Authorize an API Resource**
-   - From the dropdown, select **Application Management API**
-   - Check the following scopes (You can check **select all** Button as well):
-     - `internal_application_mgt_view`
-     - `internal_application_mgt_create`
-     - `internal_application_mgt_update`
-     - `internal_application_mgt_client_secret_view`
-   - Click **Finish**
-
-4. Return to your terminal where the script is running
-
-5. Type `y` and press Enter to confirm you've granted the permissions
-
-The script will then continue and automatically create the remaining applications.
-
-### 6. Create User in WSO2 Identity Server
-
-After the initialization script completes successfully, you need to create a user account in the WSO2 Identity Server:
-
-1. Open your browser and navigate to the WSO2 IS console:
-   ```
-   https://wso2is:9443/console
-   ```
-
-2. Login with the default admin credentials:
-   - Username: `admin`
-   - Password: `admin`
-
-3. Create a new user:
-   - Navigate to **User Management** → **Users**
-   - Click **Add User**
-   - Fill in the user details:
-     - **Email**: `nayana@opensource.lk`
-     - **Username**: `nayana` (or as preferred)
-     - **Password**: Set a secure password
-     - **First Name**: `Nayana` (optional)
-     - **Last Name**: (optional)
-   - Click **Finish** to create the user
-
-4. The user is now ready to authenticate and access the system.
-
-### 7. Verify the Setup
+### 5. Verify the Setup
 
 Once the script completes, you should see:
 
@@ -242,11 +160,40 @@ https://wso2is:9443/oauth2/token
 Public API Gateway:
 http://localhost:9080/public/*
 ============================================
+
+==========================================
+Next Step: Test Passport Application
+==========================================
+
+Please open the passport application in your browser:
+  URL: http://localhost:3000
+
+Login with the following credentials:
+  Username:   nayana
+  Password:   Abc12#45
+
+This will allow you to provide consent for the application.
+==========================================
+
+Press Ctrl+C to stop all services
+
+All services are running. Monitoring...
 ```
 
-**Important:** Save the displayed `Client ID` and `Client Secret` - you'll need them to access the public endpoints. The client secret cannot be retrieved later.
+**Important Notes:**
 
-The script will continue running and monitoring services. Press `Ctrl+C` when you want to stop all services.
+1. **Save M2M Credentials**: The displayed `Client ID` and `Client Secret` are needed to access the public endpoints. The client secret cannot be retrieved later.
+
+2. **Automatically Created User**: The script automatically creates a mock user for testing:
+   - **Username**: `nayana@opensource.lk` (or just `nayana` for login)
+   - **Password**: `Abc12#45`
+
+3. **Access Points**:
+   - **Passport Application**: `http://localhost:3000` - Main application for testing consent flows
+   - **Consent Portal**: `http://localhost:5173` - Standalone consent management interface
+   - **API Gateway**: `http://localhost:9080/public/*` - Public GraphQL endpoint
+
+4. **Keep Running**: The script will continue running and monitoring services. Press `Ctrl+C` when you want to stop all services.
 
 ## Testing the GraphQL API
 
