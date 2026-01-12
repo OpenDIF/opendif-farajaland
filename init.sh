@@ -95,26 +95,58 @@ echo ""
 
 
 # Detect machine IP address for Rancher Desktop compatibility
-print_info "Detecting host machine IP address..."
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS - try different interfaces
-    HOST_IP=$(ipconfig getifaddr en0 2>/dev/null)
-    if [ -z "$HOST_IP" ]; then
-        HOST_IP=$(ipconfig getifaddr en1 2>/dev/null)
+detect_host_ip() {
+    local ip=""
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - try different interfaces
+        for interface in en0 en1; do
+            ip=$(ipconfig getifaddr "$interface" 2>/dev/null)
+            # Validate IPv4 format
+            if [ -n "$ip" ] && [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                echo "$ip"
+                return 0
+            fi
+        done
+    else
+        # Linux - get first IPv4 address (filter out IPv6)
+        ip=$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/) {print $i; exit}}')
+        if [ -n "$ip" ]; then
+            echo "$ip"
+            return 0
+        fi
     fi
-else
-    # Linux
-    HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+
+    # Fallback: Try Docker gateway
+    if command -v docker &> /dev/null && docker info &> /dev/null; then
+        ip=$(docker run --rm --net host alpine ip route 2>/dev/null | awk '/default/ {print $3}' | head -1)
+        if [ -n "$ip" ] && [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "$ip"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+print_info "Detecting host machine IP address..."
+HOST_IP="${HOST_IP:-$(detect_host_ip)}"
+
+if [ -z "$HOST_IP" ] || [ "$HOST_IP" = "null" ]; then
+    print_error "Failed to detect host IP address"
+    print_info "For Rancher Desktop, set HOST_IP manually:"
+    print_info "  export HOST_IP=\$(hostname -I | awk '{print \$1}')"
+    print_info "  # Or use: export HOST_IP=host.docker.internal"
+    exit 1
 fi
 
-if [ -z "$HOST_IP" ]; then
-    print_warning "Could not detect machine IP address, using localhost"
-    HOST_IP="localhost"
-else
-    print_success "Detected the Host Machine IP: $HOST_IP"
+# Validate IP format
+if [[ ! $HOST_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [ "$HOST_IP" != "host.docker.internal" ]; then
+    print_error "Invalid HOST_IP format: $HOST_IP"
+    exit 1
 fi
-echo ""
 
+print_success "Detected the Host Machine IP: $HOST_IP"
 export HOST_IP
 
 # Initialize Variables
