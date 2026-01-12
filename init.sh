@@ -64,7 +64,7 @@ cleanup() {
 
     # Stop docker-compose services
     print_info "Stopping NDX infrastructure services..."
-    cd "$NDX_DIR" && docker-compose down
+    cd "$NDX_DIR" && docker-compose down -v
 
     print_success "All services stopped"
     exit $exit_code
@@ -93,6 +93,68 @@ print_info "Starting OpenDIF Farajaland - All Services"
 print_info "==========================================="
 echo ""
 
+
+# Detect machine IP address for Rancher Desktop compatibility
+detect_host_ip() {
+    local ip=""
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - try different interfaces
+        for interface in en0 en1; do
+            ip=$(ipconfig getifaddr "$interface" 2>/dev/null)
+            # Validate IPv4 format
+            if [ -n "$ip" ] && [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                echo "$ip"
+                return 0
+            fi
+        done
+    else
+        # Linux - get first IPv4 address (filter out IPv6)
+        ip=$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/) {print $i; exit}}')
+        if [ -n "$ip" ]; then
+            echo "$ip"
+            return 0
+        fi
+    fi
+
+    # Fallback: Try Docker gateway
+    if command -v docker &> /dev/null && docker info &> /dev/null; then
+        ip=$(docker run --rm --net host alpine ip route 2>/dev/null | awk '/default/ {print $3}' | head -1)
+        if [ -n "$ip" ] && [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "$ip"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+print_info "Detecting host machine IP address..."
+HOST_IP="${HOST_IP:-$(detect_host_ip)}"
+
+if [ -z "$HOST_IP" ] || [ "$HOST_IP" = "null" ]; then
+    print_error "Failed to detect host IP address"
+    print_info "For Rancher Desktop, set HOST_IP manually:"
+    print_info "  export HOST_IP=\$(hostname -I | awk '{print \$1}')"
+    print_info "  # Or use: export HOST_IP=host.docker.internal"
+    exit 1
+fi
+
+# Validate IP format
+if [[ ! $HOST_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [ "$HOST_IP" != "host.docker.internal" ]; then
+    print_error "Invalid HOST_IP format: $HOST_IP"
+    exit 1
+fi
+
+print_success "Detected the Host Machine IP: $HOST_IP"
+export HOST_IP
+
+# Initialize Variables
+WSO2IS_URL=${HOST_IP}:9444
+
+WSO2_ADMIN_USERNAME="${WSO2_ADMIN_USERNAME:-admin}"
+WSO2_ADMIN_PASSWORD="${WSO2_ADMIN_PASSWORD:-admin}"
+WSO2_ADMIN_AUTH_HEADER=$(echo -n "$WSO2_ADMIN_USERNAME:$WSO2_ADMIN_PASSWORD" | base64)
 # Start NDX infrastructure services
 print_info "Starting NDX infrastructure services (docker-compose)..."
 cd "$NDX_DIR"
@@ -110,16 +172,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# WSO2 IDENTITY SERVER CONFIGS
-WSO2_ADMIN_USERNAME="${WSO2_ADMIN_USERNAME:-admin}"
-WSO2_ADMIN_PASSWORD="${WSO2_ADMIN_PASSWORD:-admin}"
-WSO2_ADMIN_AUTH_HEADER=$(echo -n "$WSO2_ADMIN_USERNAME:$WSO2_ADMIN_PASSWORD" | base64)
-
 print_success "NDX infrastructure services started"
 echo ""
 print_info "Running services:"
 print_info "  - etcd (ports 2379, 2380)"
-print_info "  - API Gateway (ports 9080, 9180)"
+print_info "  - API Gateway (ports 9081, 9180)"
 print_info "  - Policy Decision Point (port 8082)"
 print_info "  - Consent Engine (port 8081)"
 print_info "  - Orchestration Engine (port 4000)"
@@ -148,7 +205,7 @@ print_info "Checking WSO2 Identity Server health..."
 for i in $(seq 1 30); do
     # Use curl with error handling - don't exit on failure
     if STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 --max-time 10 --insecure \
-        https://wso2is:9443/console 2>/dev/null); then
+        https://"$WSO2IS_URL"/console 2>/dev/null); then
 
         if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "302" ]; then
             print_success "WSO2 Identity Server is ready (HTTP $STATUS_CODE)"
@@ -174,7 +231,7 @@ done
 
 # Step 1: Create initial DCR application to obtain credentials for Management API access
 print_info "Creating temporary DCR application for Management API access..."
-DCR_RESPONSE=$(curl --silent -X POST https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register \
+DCR_RESPONSE=$(curl --silent -X POST https://"$WSO2IS_URL"/api/identity/oauth2/dcr/v1.1/register \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
@@ -206,7 +263,7 @@ print_info "Temporary Client ID: $DCR_CLIENT_ID"
 echo ""
 
 # Get the ApplicationId, use the endpoint to search for the created application.
-APPLICATION_RESPONSE=$(curl --silent -X GET "https://wso2is:9443/api/server/v1/applications?filter=clientId+eq+$DCR_CLIENT_ID" \
+APPLICATION_RESPONSE=$(curl --silent -X GET "https://$WSO2IS_URL/api/server/v1/applications?filter=clientId+eq+$DCR_CLIENT_ID" \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
@@ -225,7 +282,7 @@ print_info "TEMPORARY_DCR_APP Application ID: $DCR_APPLICATION_ID"
 echo ""
 
 # Fetch the id of the Application Authorization category
-APPLICATION_RESOURCE_RESPONSE=$(curl --silent -X GET 'https://wso2is:9443/api/server/v1/api-resources?filter=identifier+eq+%2Fapi%2Fserver%2Fv1%2Fapplications' \
+APPLICATION_RESOURCE_RESPONSE=$(curl --silent -X GET "https://${WSO2IS_URL}/api/server/v1/api-resources?filter=identifier+eq+%2Fapi%2Fserver%2Fv1%2Fapplications" \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
@@ -241,10 +298,10 @@ fi
 
 print_info "Granting application management permissions to temporary app..."
 
-HTTP_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X POST "https://wso2is:9443/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
+HTTP_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X POST "https://${WSO2IS_URL}/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
   --insecure \
   -H "Content-Type: application/json" \
-  -H "Authorization: Basic YWRtaW46YWRtaW4=" \
+  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
   -d '{
     "id": "'"$APPLICATION_MANAGEMENT_RESOURCE_ID"'",
     "policyIdentifier": "RBAC",
@@ -268,7 +325,7 @@ fi
 print_success "Granted application management permissions to temporary app."
 
 # Enabling SCIM2 USER CREATION ACCESS FOR THE TEMPORARY DCR APP
-USER_MANAGEMENT_RESOURCE_RESPONSE=$(curl --silent -X GET 'https://wso2is:9443/api/server/v1/api-resources?filter=identifier+eq+%2Fscim2%2FUsers' \
+USER_MANAGEMENT_RESOURCE_RESPONSE=$(curl --silent -X GET "https://${WSO2IS_URL}/api/server/v1/api-resources?filter=identifier+eq+%2Fscim2%2FUsers" \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
@@ -282,7 +339,7 @@ if [ "$USER_MANAGEMENT_RESOURCE_ID" = "null" ] || [ -z "$USER_MANAGEMENT_RESOURC
     exit 1
 fi
 
-USER_AUTHORIZATION_RESPONSE=$(curl --silent -X POST "https://wso2is:9443/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
+USER_AUTHORIZATION_RESPONSE=$(curl --silent -X POST "https://${WSO2IS_URL}/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
@@ -299,7 +356,7 @@ echo "$USER_AUTHORIZATION_RESPONSE"
 
 # Step 2: Create API Gateway application using DCR endpoint
 print_info "Creating M2M application for API Gateway using DCR endpoint..."
-GATEWAY_DCR_RESPONSE=$(curl --silent -X POST https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register \
+GATEWAY_DCR_RESPONSE=$(curl --silent -X POST https://${WSO2IS_URL}/api/identity/oauth2/dcr/v1.1/register \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
@@ -340,7 +397,7 @@ curl --location --request PUT http://localhost:9180/apisix/admin/routes \
     },
     "plugins": {
       "openid-connect": {
-        "discovery": "https://wso2is:9443/oauth2/token/.well-known/openid-configuration",
+        "discovery": "https://wso2is:9444/oauth2/token/.well-known/openid-configuration",
         "bearer_only": true,
         "token_signing_alg_values_expected": "RS256",
         "set_userinfo_header": true,
@@ -366,7 +423,7 @@ curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
 --header 'X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo' \
 --data @- <<EOF
 {
-    "uri": "/consents/*",
+    "uri": "/api/v1/consents/*",
     "methods": [
         "GET",
         "PUT",
@@ -380,7 +437,7 @@ curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
     },
     "plugins": {
         "openid-connect": {
-            "discovery": "https://wso2is:9443/oauth2/token/.well-known/openid-configuration",
+            "discovery": "https://wso2is:9444/oauth2/token/.well-known/openid-configuration",
             "bearer_only": true,
             "token_signing_alg_values_expected": "RS256",
             "set_userinfo_header": true,
@@ -393,7 +450,7 @@ curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
         "cors": {
             "allow_origins": "http://localhost:5173",
             "allow_headers": "*",
-            "allow_methods": "*"
+            "allow_methods": "GET,PUT,OPTIONS"
         }
     },
     "id": "consent-endpoint"
@@ -409,8 +466,10 @@ fi
 print_success "Consent engine routes registered successfully"
 echo ""
 
+
+print_info "Obtaining Access token for performing application operations"
 # First, obtain a new access token with the updated permissions
-TOKEN_RESPONSE=$(curl --silent -X POST https://wso2is:9443/oauth2/token \
+TOKEN_RESPONSE=$(curl --silent -X POST https://"$WSO2IS_URL"/oauth2/token \
   --insecure \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -u "$DCR_CLIENT_ID:$DCR_CLIENT_SECRET" \
@@ -431,7 +490,7 @@ echo ""
 print_info "Creating M2M application (Passport Application) using Management API..."
 
 M2M_APP_RESPONSE=$(curl --silent --insecure -i \
-  -X POST https://wso2is:9443/api/server/v1/applications \
+  -X POST https://"$WSO2IS_URL"/api/server/v1/applications \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d @- <<EOF
@@ -470,7 +529,7 @@ if [ "$M2M_HTTP_STATUS" != "201" ]; then
 fi
 
 # Extract application ID from Location header
-# Location format: https://wso2is:9443/api/server/v1/applications/{app-id}
+# Location format: https://${WSO2IS_URL}/api/server/v1/applications/{app-id}
 M2M_APP_ID=$(echo "$M2M_LOCATION" | sed 's|.*/applications/||')
 
 if [ -z "$M2M_APP_ID" ]; then
@@ -481,7 +540,7 @@ fi
 
 # Retrieve the full application details to get client ID and secret
 print_info "Retrieving M2M application credentials..."
-M2M_DETAILS_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X GET "https://wso2is:9443/api/server/v1/applications/$M2M_APP_ID/inbound-protocols/oidc" \
+M2M_DETAILS_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X GET "https://$WSO2IS_URL/api/server/v1/applications/$M2M_APP_ID/inbound-protocols/oidc" \
   --insecure \
   -H "Authorization: Bearer $ACCESS_TOKEN")
 
@@ -494,7 +553,6 @@ echo "$M2M_DETAILS_BODY"
 
 if [ "$M2M_DETAILS_HTTP_STATUS" != "200" ]; then
     print_error "Failed to retrieve M2M application details (HTTP $M2M_DETAILS_HTTP_STATUS)"
-    print_error "Response: $M2M_DETAILS_BODY"
     exit 1
 fi
 
@@ -527,7 +585,7 @@ print_info "Creating SPA application for Consent Portal using Management API..."
 # Create the Consent Portal SPA application with predefined client_id
 print_info "Creating Consent Portal application with client ID: $PORTAL_CLIENT_ID"
 
-PORTAL_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST https://wso2is:9443/api/server/v1/applications \
+PORTAL_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST https://"${WSO2IS_URL}"/api/server/v1/applications \
   --insecure \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -598,7 +656,7 @@ echo ""
 # Create a mock user using SCIM2 API
 print_info "Creating mock user via SCIM2 API..."
 SCIM_USER_RESPONSE=$(
-  curl --silent -X POST https://wso2is:9443/scim2/Users \
+  curl --silent -X POST https://"$WSO2IS_URL"/scim2/Users \
     --insecure \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -640,7 +698,7 @@ echo ""
 # Delete the temporary DCR application now that setup is complete
 if [ -n "$DCR_CLIENT_ID" ]; then
     print_info "Deleting temporary DCR application..."
-    DELETE_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X DELETE "https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID" \
+    DELETE_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X DELETE "https://${WSO2IS_URL}/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID" \
       --insecure \
       -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER")
     if [ "$DELETE_STATUS" = "204" ]; then
@@ -649,7 +707,7 @@ if [ -n "$DCR_CLIENT_ID" ]; then
     else
         print_warning "Failed to delete temporary DCR application (HTTP status: $DELETE_STATUS)"
         print_info "  Client ID: $DCR_CLIENT_ID"
-        print_info "  You can delete it manually: DELETE https://wso2is:9443/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
+        print_info "  You can delete it manually: DELETE https://$WSO2IS_URL/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
     fi
 fi
 
