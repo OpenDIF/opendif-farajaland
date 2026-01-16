@@ -48,7 +48,7 @@ services:
   policy-decision-point:
     depends_on:
       - postgres
-    image: ghcr.io/opendif/opendif-core/policy-decision-point:latest
+    image: ghcr.io/opendif/opendif-core/policy-decision-point:0.1.0
     platform: linux/amd64
     container_name: pdp-${ENVIRONMENT:-local}
     environment:
@@ -82,7 +82,7 @@ services:
     depends_on:
       - postgres
       - wso2is
-    image: ghcr.io/opendif/opendif-core/consent-engine:latest
+    image: ghcr.io/opendif/opendif-core/consent-engine:0.1.0
     platform: linux/amd64
     container_name: ce-${ENVIRONMENT:-local}
     environment:
@@ -129,9 +129,10 @@ services:
     depends_on:
       - postgres
       - wso2is
-    image: mushrafmim/consent-portal:latest
+    image: ghcr.io/opendif/opendif-core/consent-portal:0.1.0
     ports:
       - "${PORT_CP:-5173}:80"
+    platform: linux/amd64
     environment:
       - VITE_API_URL=http://localhost:9081/api/v1
       - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
@@ -144,7 +145,7 @@ services:
       - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
 
   orchestration-engine:
-    image: ghcr.io/opendif/opendif-core/orchestration-engine:latest
+    image: ghcr.io/opendif/opendif-core/orchestration-engine:0.1.0
     platform: linux/amd64
     container_name: oe-${ENVIRONMENT:-local}
     environment:
