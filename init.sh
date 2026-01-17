@@ -2,6 +2,15 @@
 
 # Master script to run both NDX infrastructure and member services
 # Usage: ./init.sh
+#
+# Environment Variables:
+#   CLEAN_START - Controls volume cleanup behavior (default: true)
+#                 true:  Removes Docker volumes on exit (fresh start every time)
+#                 false: Preserves Docker volumes (faster restarts, keeps data)
+#
+# Examples:
+#   ./init.sh                    # Default: Clean volumes on exit
+#   CLEAN_START=false ./init.sh  # Preserve data between runs
 
 set -e
 
@@ -53,7 +62,8 @@ cleanup() {
     # Preventing infinite loop when exiting by disabling traps.
     trap - INT TERM EXIT
 
-    if [ $exit_code -ne 0 ]; then
+    # Exit codes 130 (SIGINT/Ctrl+C) and 143 (SIGTERM) are normal user-initiated stops
+    if [ $exit_code -ne 0 ] && [ $exit_code -ne 130 ] && [ $exit_code -ne 143 ]; then
         print_error "Script failed with exit code: $exit_code"
     fi
 
@@ -64,7 +74,17 @@ cleanup() {
 
     # Stop docker-compose services
     print_info "Stopping NDX infrastructure services..."
-    cd "$NDX_DIR" && docker-compose down -v
+    
+    # Remove volumes based on CLEAN_START environment variable
+    # Set CLEAN_START=false to preserve data between runs
+    cd "$NDX_DIR"
+    if [ "${CLEAN_START:-true}" = "true" ]; then
+        print_info "Removing volumes (set CLEAN_START=false to preserve data)..."
+        docker-compose down -v
+    else
+        print_info "Preserving volumes..."
+        docker-compose down
+    fi
 
     print_success "All services stopped"
     exit $exit_code
@@ -91,6 +111,21 @@ fi
 
 print_info "Starting OpenDIF Farajaland - All Services"
 print_info "==========================================="
+echo ""
+
+# Load environment variables from .env file if it exists
+if [ -f "$NDX_DIR/.env" ]; then
+    set -a  # automatically export all variables
+    source "$NDX_DIR/.env"
+    set +a
+fi
+
+# Show cleanup behavior
+if [ "${CLEAN_START:-true}" = "true" ]; then
+    print_info "Volume cleanup: Enabled (set CLEAN_START=false to preserve data)"
+else
+    print_info "Volume cleanup: Disabled (data will be preserved between runs)"
+fi
 echo ""
 
 
