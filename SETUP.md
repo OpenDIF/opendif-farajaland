@@ -100,27 +100,28 @@ The `init.sh` script automates the entire setup process:
 ./init.sh
 ```
 
-**Configuration Options:**
+**Volume Cleanup Behavior:**
 
-The script reads configuration from `ndx/.env`. You can modify the following settings:
+By default, the script removes Docker volumes when you stop it (Ctrl+C). This ensures a fresh start every time and prevents schema mismatch errors.
 
-- `CLEAN_START` - Controls Docker volume cleanup behavior (default: `true`)
-  - `true`: Removes Docker volumes on exit (fresh start every time, prevents schema issues)
-  - `false`: Preserves Docker volumes (faster restarts, keeps test data between runs)
-
-**Edit `ndx/.env` to change the default:**
+If you want to preserve data between runs for faster development, set `CLEAN_START=false`:
 
 ```bash
-# In ndx/.env
-CLEAN_START=false  # Change to false to preserve data
-```
+# Default: Volumes are removed on exit (recommended)
+./init.sh
 
-**Or override via environment variable:**
-
-```bash
-# Override the .env setting for a single run
+# Preserve volumes and data between runs
 CLEAN_START=false ./init.sh
 ```
+
+**When to preserve volumes:**
+- During active development to keep test data
+- When you need faster restarts without re-initializing the database
+
+**When to remove volumes (default):**
+- First-time setup
+- After changing database schemas
+- When encountering database-related errors
 
 **What the script does:**
 

@@ -113,13 +113,6 @@ print_info "Starting OpenDIF Farajaland - All Services"
 print_info "==========================================="
 echo ""
 
-# Load environment variables from .env file if it exists
-if [ -f "$NDX_DIR/.env" ]; then
-    set -a  # automatically export all variables
-    source "$NDX_DIR/.env"
-    set +a
-fi
-
 # Show cleanup behavior
 if [ "${CLEAN_START:-true}" = "true" ]; then
     print_info "Volume cleanup: Enabled (set CLEAN_START=false to preserve data)"
