@@ -458,12 +458,42 @@ curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
 EOF
 
 
+
 if [ $? -ne 0 ]; then
     print_error "Failed to register consent engine routes"
     exit 1
 fi
 
 print_success "Consent engine routes registered successfully"
+echo ""
+
+print_info "Exposing Required Audit Service Endpoints Publicly"
+
+curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
+--header 'Content-Type: application/json' \
+--header 'X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo' \
+--data @- <<EOF
+{
+    "uri": "/api/audit-logs",
+    "methods": [
+        "GET"
+    ],
+    "upstream": {
+        "type": "roundrobin",
+        "nodes": {
+            "audit-service:3001": 1
+        }
+    },
+    "id": "audit-endpoint"
+}
+EOF
+
+if [ $? -ne 0 ]; then
+  print_error "Failed to register audit service routes"
+  exit 1
+fi
+
+print_success "Audit Service public routes registered successfully"
 echo ""
 
 

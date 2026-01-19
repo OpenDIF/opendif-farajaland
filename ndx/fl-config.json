@@ -3,6 +3,11 @@
   "trustUpstream": true,
   "ceUrl": "http://consent-engine:8081/internal/api/v1",
   "pdpUrl": "http://policy-decision-point:8082",
+  "auditConfig": {
+    "serviceUrl": "http://audit-service:3001",
+    "actorType": "SYSTEM",
+    "actorId": "orchestration-engine"
+  },
   "providers": [
     {
       "providerKey": "drp",

@@ -44,6 +44,7 @@ The following are only required if you want to run and modify the data source se
     - `9081, 9180` - API Gateway (APISIX)
     - `9444, 9673` - FUDI (WSO2 Identity Server)
     - `5173` - Consent Portal (Frontend)
+    - `3001` - Audit Service
   - **Member Services**
     - `8080` - RGD API
     - `9090` - DRP API
@@ -191,7 +192,8 @@ All services are running. Monitoring...
 3. **Access Points**:
    - **Passport Application**: `http://localhost:3000` - Main application for testing consent flows
    - **Consent Portal**: `http://localhost:5173` - Standalone consent management interface
-   - **API Gateway**: `http://localhost:9081/public/*` - Public GraphQL endpoint
+   - **API Gateway**: `http://localhost:9081/public/graphql` - Public GraphQL endpoint
+   - **Audit Logs API**: `http://localhost:9081/api/audit-logs` - Query audit logs
 
 4. **Keep Running**: The script will continue running and monitoring services. Press `Ctrl+C` when you want to stop all services.
 

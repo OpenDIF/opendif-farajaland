@@ -167,6 +167,27 @@ services:
     networks:
       - exchange-network
 
+  audit-service:
+    image: ghcr.io/opendif/opendif-core/audit-service:0.1.0
+    platform: linux/amd64
+    container_name: audit-${ENVIRONMENT:-local}
+    depends_on:
+      - postgres
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-local}
+      - PORT=3001
+      - DB_TYPE=${AUDIT_DB_TYPE:-postgres}
+      - DB_HOST=${AUDIT_DB_HOST:-localhost}
+      - DB_PORT=${AUDIT_DB_PORT:-5432}
+      - DB_USERNAME=${AUDIT_DB_USERNAME:-exchange}
+      - DB_PASSWORD=${AUDIT_DB_PASSWORD:-exchange}
+      - DB_NAME=audit_db
+    volumes:
+      - ./config/audit/enums.yml:/app/config/enums.yaml:ro
+    networks:
+      - exchange-network
+    restart: unless-stopped
+
   postgres:
     image: postgres:15
     container_name: pg-${ENVIRONMENT:-local}
@@ -178,6 +199,7 @@ services:
       - pg_data:/var/lib/postgresql/data
       - ./opendif_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
       - ./consent_engine_schema.sql:/docker-entrypoint-initdb.d/02_consent_engine_schema.sql
+      - ./audit_service_schema.sql:/docker-entrypoint-initdb.d/03_audit_service_schema.sql
     networks:
       - exchange-network
     restart: unless-stopped
