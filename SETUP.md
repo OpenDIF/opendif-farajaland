@@ -100,6 +100,29 @@ The `init.sh` script automates the entire setup process:
 ./init.sh
 ```
 
+**Volume Cleanup Behavior:**
+
+By default, the script removes Docker volumes when you stop it (Ctrl+C). This ensures a fresh start every time and prevents schema mismatch errors.
+
+If you want to preserve data between runs for faster development, set `CLEAN_START=false`:
+
+```bash
+# Default: Volumes are removed on exit (recommended)
+./init.sh
+
+# Preserve volumes and data between runs
+CLEAN_START=false ./init.sh
+```
+
+**When to preserve volumes:**
+- During active development to keep test data
+- When you need faster restarts without re-initializing the database
+
+**When to remove volumes (default):**
+- First-time setup
+- After changing database schemas
+- When encountering database-related errors
+
 **What the script does:**
 
 1. ✅ Checks if Docker is running
@@ -412,16 +435,31 @@ If you started services with `./init.sh`, simply press `Ctrl+C` in the terminal 
 
 1. Stop all member services
 2. Stop all Docker Compose services
-3. Clean up resources
+3. Clean up resources (based on `CLEAN_START` setting)
+
+**Volume Cleanup Behavior:**
+
+- By default (`CLEAN_START=true`), volumes are removed to ensure a fresh start
+- With `CLEAN_START=false`, volumes are preserved to keep your data between runs
+
+```bash
+# Example: Preserve data when stopping
+CLEAN_START=false ./init.sh
+# Then press Ctrl+C to stop - data will be preserved
+```
 
 ### Manual Cleanup
 
 If you need to stop services manually:
 
 ```bash
-# Stop Docker Compose services
+# Stop Docker Compose services (preserve volumes)
 cd ndx
 docker-compose down
+
+# Stop Docker Compose services and remove volumes (clean start)
+cd ndx
+docker-compose down -v
 
 # Stop member services (if running in background)
 # Find and kill the processes
@@ -441,12 +479,14 @@ To remove all data and start fresh:
 cd ndx
 docker-compose down -v
 
-# Remove PostgreSQL data
-rm -rf postgres-data/
+# Or manually remove specific volume
+docker volume rm ndx_pg_data
 
 # This will delete all database data and OAuth2 applications
 # You'll need to run init.sh again to recreate everything
 ```
+
+**Note:** If you encounter schema mismatch errors (like "invalid UUID length"), it's usually because the database wasn't properly initialized. Use `docker-compose down -v` to remove the old volume and start fresh.
 
 ## Next Steps
 
