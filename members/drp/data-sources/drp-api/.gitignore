@@ -1,0 +1,3 @@
+# Ballerina build artifacts
+target/
+generated/
