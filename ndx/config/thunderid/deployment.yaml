@@ -2,6 +2,11 @@ server:
   hostname: {{.HOSTNAME}}
   public_url: {{.PUBLIC_URL}}
   port: {{.PORT}}
+  security:
+    trusted_issuer:
+      issuer: "https://accounts.google.com"
+      jwks_url: "https://www.googleapis.com/oauth2/v3/certs"
+      audience: "{{.GOOGLE_CLIENT_ID}}"
 
 tls:
   min_version: "1.3"

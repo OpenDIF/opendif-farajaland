@@ -74,6 +74,7 @@ services:
       - consent-db:/opt/thunderid/consent/repository/database
       - ./config/thunderid/bootstrap/02-admin-cli.sh:/opt/thunderid/bootstrap/02-admin-cli.sh
       - ./config/thunderid/bootstrap/03-google-idp.sh:/opt/thunderid/bootstrap/03-google-idp.sh
+      - ./config/thunderid/deployment.yaml:/opt/thunderid/deployment.yaml
     restart: "no"
     networks:
       - exchange-network
@@ -106,6 +107,7 @@ services:
       - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-noreply@farajaland.local}
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     volumes:
       - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database
