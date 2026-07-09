@@ -342,7 +342,7 @@ create_m2m_application() {
             "config": {
                 "clientId": "${CLIENT_ID_NEW}",
                 "clientSecret": "${CLIENT_SECRET_NEW}",
-                "grantTypes": ["client_credentials", "refresh_token"],
+                "grantTypes": ["client_credentials", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"],
                 "tokenEndpointAuthMethod": "client_secret_basic",
                 "pkceRequired": false,
                 "publicClient": false,
@@ -398,8 +398,8 @@ create_spa_application() {
                 "pkceRequired": true,
                 "publicClient": true,
                 "token": {
-                    "accessToken": { "validityPeriod": 3600, "userAttributes": ["email"] },
-                    "idToken": { "validityPeriod": 3600 }
+                    "accessToken": { "validityPeriod": 3600, "userAttributes": ["email", "opendif-uid"] },
+                    "idToken": { "validityPeriod": 3600, "userAttributes": ["email", "opendif-uid"] }
                 }
             }
         }
@@ -631,7 +631,8 @@ USER_RESPONSE=$(thunderid_api_call POST "/users" "$(cat <<EOF
     "password": "${MOCK_USER_PASSWORD:-Abc12#45}",
     "email": "nayana@opensource.lk",
     "given_name": "Nayana",
-    "family_name": "Samaranayake"
+    "family_name": "Samaranayake",
+    "opendif-uid": "${MOCK_USER_EMAIL:-nayana@opensource.lk}"
   }
 }
 EOF

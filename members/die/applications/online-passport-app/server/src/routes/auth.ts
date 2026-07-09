@@ -10,19 +10,11 @@ const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
 const thunderidTokenUrl = process.env.TOKEN_URL || 'https://localhost:8090/oauth2/token';
 const passportClientId = process.env.CLIENT_ID || '';
 const passportClientSecret = process.env.CLIENT_SECRET || '';
-const mockUserEmail = process.env.MOCK_USER_EMAIL || 'nuwan@opensource.lk';
-
-const isMockMode = !googleClientId || googleClientId.includes('placeholder');
 
 // Google Auth Redirect Initiation
 router.get('/google', (req: Request, res: Response) => {
   const host = req.get('host') || 'localhost:3000';
   const redirectUri = `${req.protocol}://${host}/login`;
-
-  if (isMockMode) {
-    console.log('[Auth] Mock mode active. Redirecting client back with mock-code.');
-    return res.redirect(`${redirectUri}?code=mock-code`);
-  }
 
   const state = crypto.randomBytes(16).toString('hex');
   res.cookie('oauth_state', state, { httpOnly: true, sameSite: 'lax', maxAge: 300000 });
@@ -44,31 +36,6 @@ router.post('/exchange', async (req: Request, res: Response) => {
 
   if (!code) {
     return res.status(400).json({ error: 'Authorization code is required' });
-  }
-
-  // Fallback / Mock login flow in development
-  if (isMockMode || code === 'mock-code') {
-    console.log('[Auth] Processing token exchange in mock mode.');
-    const mockClaims = {
-      "opendif-uid": mockUserEmail,
-      "email": mockUserEmail,
-      "name": "Nuwan Fernando"
-    };
-    const mockIdToken = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64') + '.' +
-      Buffer.from(JSON.stringify(mockClaims)).toString('base64') + '.' +
-      Buffer.from('mock-signature').toString('base64');
-
-    return res.json({
-      name: 'Nuwan Fernando',
-      nic: mockUserEmail,
-      sludiNumber: '3434 3434 3434',
-      mobileNumber: '94712345678',
-      email: mockUserEmail,
-      authenticated: true,
-      loginTime: new Date().toISOString(),
-      token: 'mock-session-token',
-      idToken: mockIdToken
-    });
   }
 
   try {
@@ -101,7 +68,8 @@ router.post('/exchange', async (req: Request, res: Response) => {
 
     // Exchange Google ID Token with ThunderID via RFC 8693 Token Exchange
     const credentials = Buffer.from(`${passportClientId}:${passportClientSecret}`).toString('base64');
-    const rejectUnauthorized = process.env.NODE_ENV === 'production' ? true : (process.env.REJECT_UNAUTHORIZED !== 'false');
+    const isLocal = thunderidTokenUrl.includes('localhost') || thunderidTokenUrl.includes('127.0.0.1') || thunderidTokenUrl.includes('10.');
+    const rejectUnauthorized = isLocal ? false : (process.env.NODE_ENV === 'production' ? true : (process.env.REJECT_UNAUTHORIZED !== 'false'));
     const httpsAgent = new https.Agent({
       rejectUnauthorized
     });
@@ -111,7 +79,7 @@ router.post('/exchange', async (req: Request, res: Response) => {
       new URLSearchParams({
         grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
         subject_token: googleIdToken,
-        subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+        subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
         scope: 'openid profile email'
       }).toString(),
       {
@@ -153,40 +121,6 @@ router.post('/exchange', async (req: Request, res: Response) => {
       error: 'Failed to authenticate user via Google and ThunderID OIDC'
     });
   }
-});
-
-// Mock Google OIDC Authorization Endpoint (for Consent Portal direct redirection)
-router.get('/google-mock-auth', (req: Request, res: Response) => {
-  const { redirect_uri, state } = req.query;
-  if (!redirect_uri) {
-    return res.status(400).send('redirect_uri is required');
-  }
-  console.log(`[Google Mock IDP] Redirecting client back to ThunderID callback with state=${state}`);
-  res.redirect(`${redirect_uri}?code=mock-google-code&state=${state}`);
-});
-
-// Mock Google OIDC Token Endpoint (for ThunderID server-to-server exchange)
-router.post('/google-mock-token', (req: Request, res: Response) => {
-  console.log('[Google Mock IDP] Handling token exchange request.');
-  const mockClaims = {
-    iss: "https://accounts.google.com",
-    sub: "mock-google-user",
-    email: mockUserEmail,
-    email_verified: true,
-    name: "Nuwan Fernando",
-    given_name: "Nuwan",
-    family_name: "Fernando"
-  };
-  const mockIdToken = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64') + '.' +
-    Buffer.from(JSON.stringify(mockClaims)).toString('base64') + '.' +
-    Buffer.from('mock-signature').toString('base64');
-
-  res.json({
-    access_token: "mock-google-access-token",
-    token_type: "Bearer",
-    expires_in: 3600,
-    id_token: mockIdToken
-  });
 });
 
 export default router;

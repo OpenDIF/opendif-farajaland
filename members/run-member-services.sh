@@ -82,6 +82,24 @@ print_step() {
     echo -e "${CYAN}[STEP]${NC} $1"
 }
 
+# Load env variables from ndx/.env if it exists
+if [ -f "${SCRIPT_DIR}/../ndx/.env" ]; then
+    print_info "Loading environment variables from ndx/.env..."
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Ignore comments and empty lines
+        if [[ ! "$line" =~ ^[[:space:]]*# ]] && [[ -n "$line" ]]; then
+            # Only export valid key=value assignments
+            if [[ "$line" =~ ^([A-Za-z0-9_]+)=(.*)$ ]]; then
+                var_name="${BASH_REMATCH[1]}"
+                var_val="${BASH_REMATCH[2]}"
+                if eval "[ -z \"\${$var_name+x}\" ]"; then
+                    export "$var_name=$var_val"
+                fi
+            fi
+        fi
+    done < "${SCRIPT_DIR}/../ndx/.env"
+fi
+
 # Function to check if Docker is installed and running
 check_docker() {
     if ! command -v docker &> /dev/null; then
@@ -296,6 +314,8 @@ run_die() {
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
         -e "NDX_GRAPHQL_API_URL=http://${HOST_IP}:9081/public/graphql" \
         -e "TOKEN_URL=https://${HOST_IP}:${IDP_PORT:-8090}/oauth2/token" \
+        -e "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+        -e "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" \
         --restart unless-stopped \
         "$DIE_IMAGE"
 
