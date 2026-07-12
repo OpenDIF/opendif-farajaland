@@ -1,0 +1,175 @@
+# resource_type: user_type
+id: 01900000-0000-7000-8000-000000000010
+category: user
+name: Person
+ouHandle: default
+systemAttributes:
+  display: username
+schema:
+  username:
+    type: string
+    displayName: Username
+    required: true
+    unique: true
+  email:
+    type: string
+    displayName: Email
+    required: true
+    unique: true
+    regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+  given_name:
+    type: string
+    displayName: First Name
+    required: false
+  family_name:
+    type: string
+    displayName: Last Name
+    required: false
+  mobile_number:
+    type: string
+    displayName: Mobile Number
+    required: false
+  phone_number:
+    type: string
+    displayName: Phone Number
+    required: false
+  sub:
+    type: string
+    displayName: Subject
+    required: false
+  name:
+    type: string
+    displayName: Full Name
+    required: false
+  picture:
+    type: string
+    displayName: Picture
+    required: false
+  password:
+    type: string
+    displayName: Password
+    required: false
+    credential: true
+  opendif-uid:
+    type: string
+    displayName: OpenDIF User ID
+    required: false
+---
+# resource_type: application
+id: 01900000-0000-7000-8000-000000000070
+name: admin-cli
+description: Admin CLI machine client for management API access
+ouId: 01900000-0000-7000-8000-000000000001
+isRegistrationFlowEnabled: false
+assertion:
+  validityPeriod: 3600
+inboundAuthConfig:
+  - type: oauth2
+    config:
+      clientId: ADMIN_CLI
+      clientSecret: "{{ .ADMIN_CLI_SECRET }}"
+      grantTypes:
+        - client_credentials
+      tokenEndpointAuthMethod: client_secret_basic
+      pkceRequired: false
+      publicClient: false
+      token:
+        accessToken:
+          validityPeriod: 3600
+allowedUserTypes: []
+---
+# resource_type: role
+id: 01900000-0000-7000-8000-000000000050
+name: Administrator
+description: System administrator role with full permissions
+ouHandle: default
+permissions:
+  - resourceServerId: 01900000-0000-7000-8000-000000000020
+    permissions:
+      - system
+assignments:
+  - id: 01900000-0000-7000-8000-000000000040
+    type: group
+  - id: 01900000-0000-7000-8000-000000000070
+    type: app
+---
+# resource_type: idp
+id: 01900000-0000-7000-8000-000000000080
+name: Google
+type: OIDC
+properties:
+  - name: client_id
+    value: "{{ .GOOGLE_CLIENT_ID }}"
+  - name: client_secret
+    value: "{{ .GOOGLE_CLIENT_SECRET }}"
+  - name: redirect_uri
+    value: "{{ .IDP_BROWSER_URL }}/gate/signin"
+  - name: authorization_endpoint
+    value: "https://accounts.google.com/o/oauth2/v2/auth"
+  - name: token_endpoint
+    value: "https://oauth2.googleapis.com/token"
+  - name: issuer
+    value: "https://accounts.google.com"
+  - name: jwks_endpoint
+    value: "https://www.googleapis.com/oauth2/v3/certs"
+  - name: token_exchange_enabled
+    value: "true"
+  - name: trusted_token_audience
+    value: "{{ .GOOGLE_CLIENT_ID }}"
+attributeConfiguration:
+  userTypeResolution:
+    mode: DEFAULT
+    default: Person
+  userTypeAttributeMappings:
+    - userType: Person
+      attributes:
+        - externalAttribute: email
+          localAttribute: email
+        - externalAttribute: given_name
+          localAttribute: given_name
+        - externalAttribute: family_name
+          localAttribute: family_name
+        - externalAttribute: sub
+          localAttribute: sub
+        - externalAttribute: picture
+          localAttribute: picture
+        - externalAttribute: email
+          localAttribute: opendif-uid
+  accountLinking:
+    attributes:
+      - email
+---
+# resource_type: flow
+id: 01900000-0000-7000-8000-000000000061
+name: Default Authentication Flow
+handle: default-flow
+flowType: AUTHENTICATION
+nodes:
+  - id: start
+    type: START
+    onSuccess: google_auth
+  - id: google_auth
+    type: TASK_EXECUTION
+    properties:
+      idpId: 01900000-0000-7000-8000-000000000080
+      allowAuthenticationWithoutLocalUser: true
+    executor:
+      name: GoogleOIDCAuthExecutor
+      inputs:
+        - ref: input_google_code
+          type: TEXT_INPUT
+          identifier: code
+          required: true
+    onSuccess: authorization_check
+  - id: authorization_check
+    type: TASK_EXECUTION
+    executor:
+      name: AuthorizationExecutor
+    onSuccess: auth_assert
+  - id: auth_assert
+    type: TASK_EXECUTION
+    executor:
+      name: AuthAssertExecutor
+    onSuccess: end
+  - id: end
+    type: END
