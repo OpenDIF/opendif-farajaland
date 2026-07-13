@@ -431,7 +431,7 @@ Commands:
 
 Environment Variables:
   DOCKER_REGISTRY  Docker registry to use (default: docker.io)
-  IMAGE_PREFIX     Image prefix/namespace (default: opendif)
+  IMAGE_PREFIX     Image prefix/namespace (default: mushrafmim)
   IMAGE_TAG        Image tag to use (default: latest)
 
 Examples:

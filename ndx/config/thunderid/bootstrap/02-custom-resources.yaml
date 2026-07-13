@@ -50,9 +50,9 @@ schema:
     displayName: Password
     required: false
     credential: true
-  opendif-uid:
+  openndx-uid:
     type: string
-    displayName: OpenDIF User ID
+    displayName: OpenNDX User ID
     required: false
 ---
 # resource_type: application
@@ -134,7 +134,7 @@ attributeConfiguration:
         - externalAttribute: picture
           localAttribute: picture
         - externalAttribute: email
-          localAttribute: opendif-uid
+          localAttribute: openndx-uid
   accountLinking:
     attributes:
       - email

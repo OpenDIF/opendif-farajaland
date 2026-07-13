@@ -126,7 +126,7 @@ services:
   policy-decision-point:
     depends_on:
       - postgres
-    image: ghcr.io/opendif/opendif-core/policy-decision-point:0.1.0
+    image: ghcr.io/openndx/openndx-core/policy-decision-point:0.1.0
     platform: linux/amd64
     container_name: pdp-${ENVIRONMENT:-local}
     environment:
@@ -161,9 +161,9 @@ services:
       - postgres
       - thunderid
     # Image with the generic (IdP-agnostic) JWT verifier — validates issuer +
-    # audience + client_id, no organization claim (OpenDIF/opendif-core#450),
+    # audience + client_id, no organization claim (OpenNDX/openndx-core#450),
     # and supports IDP_JWKS_INSECURE_SKIP_VERIFY (#452).
-    image: ghcr.io/opendif/opendif-core/consent-engine:${CE_IMAGE_TAG:-sha-79a8b79fd9e5c30f676a2ae950eeaec3d19eabd9}
+    image: ghcr.io/openndx/openndx-core/consent-engine:${CE_IMAGE_TAG:-sha-79a8b79fd9e5c30f676a2ae950eeaec3d19eabd9}
     platform: linux/amd64
     container_name: ce-${ENVIRONMENT:-local}
     environment:
@@ -214,7 +214,7 @@ services:
     depends_on:
       - postgres
       - thunderid
-    image: ghcr.io/opendif/opendif-core/consent-portal:0.1.0
+    image: ghcr.io/openndx/openndx-core/consent-portal:0.1.0
     ports:
       - "${PORT_CP:-5173}:80"
     platform: linux/amd64
@@ -230,7 +230,7 @@ services:
       - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
 
   orchestration-engine:
-    image: ghcr.io/opendif/opendif-core/orchestration-engine:0.1.0
+    image: ghcr.io/openndx/openndx-core/orchestration-engine:0.1.0
     platform: linux/amd64
     container_name: oe-${ENVIRONMENT:-local}
     environment:
@@ -253,7 +253,7 @@ services:
       - exchange-network
 
   audit-service:
-    image: ghcr.io/opendif/opendif-core/audit-service:0.1.0
+    image: ghcr.io/openndx/openndx-core/audit-service:0.1.0
     platform: linux/amd64
     container_name: audit-${ENVIRONMENT:-local}
     depends_on:
@@ -282,7 +282,7 @@ services:
       POSTGRES_DB: ${DB_NAME:-exchange_service}
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./opendif_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./openndx_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
       - ./consent_engine_schema.sql:/docker-entrypoint-initdb.d/02_consent_engine_schema.sql
       - ./audit_service_schema.sql:/docker-entrypoint-initdb.d/03_audit_service_schema.sql
     networks:

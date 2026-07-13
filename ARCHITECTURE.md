@@ -1,6 +1,6 @@
-# OpenDIF Farajaland - Technical Architecture
+# OpenNDX Farajaland - Technical Architecture
 
-This document provides comprehensive technical architecture details for the OpenDIF Farajaland reference implementation, including system components, data flow, integration patterns, and deployment considerations.
+This document provides comprehensive technical architecture details for the OpenNDX Farajaland reference implementation, including system components, data flow, integration patterns, and deployment considerations.
 
 ## Table of Contents
 
@@ -20,7 +20,7 @@ This document provides comprehensive technical architecture details for the Open
 
 ## Overview
 
-OpenDIF Farajaland implements a **federated data exchange architecture** that enables secure, consent-based data sharing across government agencies without centralizing data storage. The architecture prioritizes:
+OpenNDX Farajaland implements a **federated data exchange architecture** that enables secure, consent-based data sharing across government agencies without centralizing data storage. The architecture prioritizes:
 
 - **Data Sovereignty**: Each agency maintains control over their data
 - **Citizen Privacy**: Explicit consent required for all data access
@@ -81,7 +81,7 @@ OpenDIF Farajaland implements a **federated data exchange architecture** that en
 
 ## Architecture Layers
 
-The OpenDIF Farajaland architecture is organized into five distinct layers:
+The OpenNDX Farajaland architecture is organized into five distinct layers:
 
 ### 1. Client Layer
 **Purpose**: Consumer applications that need federated data
@@ -255,7 +255,7 @@ The NDX is the core infrastructure layer providing orchestration, consent manage
 
 ### The Challenge
 
-OpenDIF's NDX communicates with data providers using **GraphQL** for all egress calls. However, many existing government systems use legacy protocols like:
+OpenNDX's NDX communicates with data providers using **GraphQL** for all egress calls. However, many existing government systems use legacy protocols like:
 - REST (JSON/XML)
 - SOAP
 - XML-RPC

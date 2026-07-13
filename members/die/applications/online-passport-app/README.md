@@ -139,7 +139,7 @@ TOKEN_URL=https://api.asgardeo.io/t/lankasoftwarefoundation/oauth2/token
 CLIENT_ID=th4QLB_Af1fWgKo7j9KYdbe9Pika
 CLIENT_SECRET=tb9xv2lsu2s3EoX1B3ktxe9JPEr1YUQcdI8SoLx8BL8a
 ASGARDEO_SCOPES=openid profile
-GRAPHQL_API_URL=https://41200aa1-4106-4e6c-babf-311dce37c04a-prod.e1-us-east-azure.choreoapis.dev/opendif-ndx/orchestration-engine/v7
+GRAPHQL_API_URL=https://41200aa1-4106-4e6c-babf-311dce37c04a-prod.e1-us-east-azure.choreoapis.dev/openndx-ndx/orchestration-engine/v7
 ```
 
 ## Application Flow
@@ -201,7 +201,7 @@ query GetData {
 
 ## Contributing
 
-This application is part of the Farajaland OpenDIF initiative for digital government services.
+This application is part of the Farajaland OpenNDX initiative for digital government services.
 
 ## License
 
