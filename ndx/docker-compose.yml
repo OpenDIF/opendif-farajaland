@@ -28,7 +28,7 @@ services:
   # Stage A: seed the ThunderID image's bundled SQLite DB files into named
   # volumes so thunderid-setup/thunderid see a writable copy.
   thunderid-db-init:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.48.0}
     container_name: thunderid-db-init-${ENVIRONMENT:-local}
     # -n (no-clobber): seed only if empty. Recreating this container (e.g. after
     # an unrelated env var change) must never overwrite an already-populated
@@ -42,11 +42,11 @@ services:
       - exchange-network
 
   # Stage B: one-shot bootstrap. Starts the server with security disabled,
-  # runs the image's 01-default-resources.sh (default OU, Person user type,
-  # Administrator role, Console app) plus our mounted 02-admin-cli.sh (creates
-  # the ADMIN_CLI M2M client used by init.sh to mint management tokens).
+  # runs the image's 01-default-resources.yaml (default OU, Person user type,
+  # Administrator role, Console app) plus our mounted 02-custom-resources.yaml
+  # (admin-cli app, Google IdP, and default auth flow).
   thunderid-setup:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.48.0}
     container_name: thunderid-setup-${ENVIRONMENT:-local}
     command: ./setup.sh
     depends_on:
@@ -67,16 +67,20 @@ services:
       - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-noreply@farajaland.local}
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - DIRECT_AUTH_SECRET=${DIRECT_AUTH_SECRET:-}
+      - IDP_BROWSER_URL=${IDP_BROWSER_URL:-https://localhost:8090}
     volumes:
       - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database
-      - ./config/thunderid/bootstrap/02-admin-cli.sh:/opt/thunderid/bootstrap/02-admin-cli.sh
+      - ./config/thunderid/bootstrap/02-custom-resources.yaml:/opt/thunderid/bootstrap/02-custom-resources.yaml
     restart: "no"
     networks:
       - exchange-network
 
   thunderid:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.48.0}
     container_name: thunderid-${ENVIRONMENT:-local}
     depends_on:
       thunderid-setup:
@@ -103,6 +107,8 @@ services:
       - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-noreply@farajaland.local}
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
+      - DIRECT_AUTH_SECRET=${DIRECT_AUTH_SECRET:-}
+      - IDP_BROWSER_URL=${IDP_BROWSER_URL:-https://localhost:8090}
     volumes:
       - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database
