@@ -2,20 +2,26 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
 import * as dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import graphqlRouter from './routes/graphql';
+import authRouter from './routes/auth';
 
 dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
+app.set('trust proxy', true);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // API Routes
 app.use('/api', graphqlRouter);
+app.use('/api/auth', authRouter);
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {
