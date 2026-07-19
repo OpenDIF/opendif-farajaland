@@ -201,7 +201,7 @@ query GetData {
 
 ## Contributing
 
-This application is part of the Farajaland OpenDIF initiative for digital government services.
+This application is part of the Farajaland OpenNDX initiative for digital government services.
 
 ## License
 
