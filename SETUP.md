@@ -1,4 +1,4 @@
-# OpenNDX Farajaland - Setup Guide
+# OpenNDX Farajaland – Setup Guide
 
 This guide will help you set up and run the OpenNDX Farajaland reference implementation on your local machine.
 

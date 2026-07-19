@@ -1,4 +1,4 @@
-# OpenNDX Farajaland - Technical Architecture
+# OpenNDX Farajaland – Technical Architecture
 
 This document provides comprehensive technical architecture details for the OpenNDX Farajaland reference implementation, including system components, data flow, integration patterns, and deployment considerations.
 

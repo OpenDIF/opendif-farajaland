@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![OpenNDX](https://img.shields.io/badge/OpenNDX-Reference%20Implementation-green.svg)
 
-The **National Data Exchange (NDX)** is a reference implementation of the **Open Data Interchange Framework (OpenDIF)** for the fictional country of Farajaland. NDX demonstrates secure, privacy-preserving data exchange across government agencies through a citizen-centric, consent-based approach.
+The **National Data Exchange (NDX)** is a reference implementation of the **Open National Data Exchange (OpenNDX)** for the fictional country of Farajaland. Farajaland NDX demonstrates secure, privacy-preserving data exchange across government agencies through a citizen-centric, consent-based approach.
 
 ## Table of Contents
 
