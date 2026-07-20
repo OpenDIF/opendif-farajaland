@@ -33,9 +33,9 @@ GOOGLE_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-your-actual-secret
 ```
 
-### Optional — Federated User Account Linking
+### Required — Federated User Account Linking & Database Population
 
-To link your Google account with a local ThunderID user (so the NDX data exchange works after login), uncomment and fill in the `FED_USER_*` variables:
+To test the full NDX flow (including querying birth records via GraphQL), you must link your Google account with a local user. Uncomment and fill in the `FED_USER_*` variables in `ndx/.env`:
 
 ```env
 FED_USER_USERNAME=your-google-username
@@ -44,7 +44,9 @@ FED_USER_GIVEN_NAME=YourFirstName
 FED_USER_FAMILY_NAME=YourLastName
 ```
 
-> **Note:** The `FED_USER_EMAIL` must match the email of the Google account you'll sign in with. This is how ThunderID links the federated Google identity to a local user.
+> [!IMPORTANT]
+> - **Email Matching:** The `FED_USER_EMAIL` must match the exact email of the Google account you will use to log in. This allows ThunderID to link the federated identity.
+> - **Database Population:** The initialization scripts will automatically use this email address to register a user in ThunderID and populate the mock Birth Registry (`rgd-api`) database. This ensures that once logged in, you can successfully fetch citizen birth records using GraphQL under your account.
 
 ---
 
@@ -86,9 +88,10 @@ If you see `Google Federation: Not configured`, double-check your `GOOGLE_CLIENT
 ### Consent Portal (http://localhost:5173)
 
 1. Open http://localhost:5173
-2. You'll be redirected to ThunderID → Google for authentication
-3. After Google sign-in, ThunderID processes the federation and returns you to the Consent Portal
-4. Review and approve/reject consent requests
+2. Log in using the standard citizen credentials:
+   - **Username:** `nayana`
+   - **Password:** `Abc12#45`
+3. Review and approve/reject consent requests initiated by the Passport App.
 
 ---
 
@@ -107,7 +110,7 @@ If you see `Google Federation: Not configured`, double-check your `GOOGLE_CLIENT
                     │  :8090       │
                     └──────────────┘
                            ▲
-                           │ OIDC
+                           │ OIDC (Password Grant)
 ┌─────────────┐     ┌──────┴───────┐
 │  Browser     │────▶│ Consent      │
 │             │◀────│ Portal :5173 │
@@ -116,7 +119,7 @@ If you see `Google Federation: Not configured`, double-check your `GOOGLE_CLIENT
 
 **Passport App flow:** The app handles Google OAuth directly, then exchanges the Google `id_token` with ThunderID via [RFC 8693 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693).
 
-**Consent Portal flow:** The portal uses ThunderID's built-in OIDC login, which redirects to Google via the configured authentication flow.
+**Consent Portal flow:** The portal uses ThunderID's standard authentication with citizen username/password (nayana/Abc12#45).
 
 ---
 
