@@ -40,13 +40,16 @@ NC='\033[0m' # No Color
 # Docker image configuration
 DOCKER_REGISTRY="${DOCKER_REGISTRY:-docker.io}"
 IMAGE_PREFIX="${IMAGE_PREFIX:-mushrafmim}"
-IMAGE_TAG="${IMAGE_TAG:-latest}"
+# Member data-source services (DRP, DRP Adapter, RGD) are published as v0.1.0.
+IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
+# The passport app is still published under 'latest'; keep it on its own tag.
+DIE_IMAGE_TAG="${DIE_IMAGE_TAG:-latest}"
 
 # Image names
 DRP_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api:${IMAGE_TAG}"
 DRP_ADAPTER_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api-adapter:${IMAGE_TAG}"
 RGD_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/rgd-api:${IMAGE_TAG}"
-DIE_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/online-passport-app:${IMAGE_TAG}"
+DIE_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/online-passport-app:${DIE_IMAGE_TAG}"
 
 # Container names
 DRP_CONTAINER="drp-api"
@@ -193,6 +196,7 @@ run_drp() {
         --name "$DRP_CONTAINER" \
         -p 9090:9090 \
         -v "${DRP_DIR}/Config.toml:/home/ballerina/Config.toml:ro" \
+        -v "${DRP_DIR}/mock_data.json:/home/ballerina/mock_data.json:ro" \
         --restart unless-stopped \
         "$DRP_IMAGE"
 
@@ -256,9 +260,11 @@ run_rgd() {
     fi
 
     print_step "Starting RGD API container..."
-    docker run -d \
+    # MSYS_NO_PATHCONV avoids Git Bash mangling the -v host:container:mode volume spec on Windows.
+    MSYS_NO_PATHCONV=1 docker run -d \
         --name "$RGD_CONTAINER" \
         -p 8080:8080 \
+        -v "${RGD_DIR}/mock_data.json:/app/mock_data.json:ro" \
         --restart unless-stopped \
         "$RGD_IMAGE"
 
@@ -431,8 +437,9 @@ Commands:
 
 Environment Variables:
   DOCKER_REGISTRY  Docker registry to use (default: docker.io)
-  IMAGE_PREFIX     Image prefix/namespace (default: opendif)
-  IMAGE_TAG        Image tag to use (default: latest)
+  IMAGE_PREFIX     Image prefix/namespace (default: mushrafmim)
+  IMAGE_TAG        Tag for DRP, DRP Adapter and RGD images (default: v0.1.0)
+  DIE_IMAGE_TAG    Tag for the passport app image (default: latest)
 
 Examples:
   $0 drp                                    # Run only DRP service
