@@ -1,13 +1,13 @@
-# National Data Exchange (NDX) For Farajaland Powered by OpenDIF
+# National Data Exchange (NDX) For Farajaland Powered by OpenNDX
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![OpenDIF](https://img.shields.io/badge/OpenDIF-Reference%20Implementation-green.svg)](https://opendif.org)
+![OpenNDX](https://img.shields.io/badge/OpenNDX-Reference%20Implementation-green.svg)
 
-The **National Data Exchange (NDX)** is a reference implementation of the **Open Data Interchange Framework (OpenDIF)** for the fictional country of Farajaland. NDX demonstrates secure, privacy-preserving data exchange across government agencies through a citizen-centric, consent-based approach.
+The **National Data Exchange (NDX)** is a reference implementation of the **Open National Data Exchange (OpenNDX)** for the fictional country of Farajaland. Farajaland NDX demonstrates secure, privacy-preserving data exchange across government agencies through a citizen-centric, consent-based approach.
 
 ## Table of Contents
 
-- [Understanding the OpenDIF Ecosystem](#understanding-the-farajaland-ndx-ecosystem)
+- [Understanding the OpenNDX Ecosystem](#understanding-the-farajaland-ndx-ecosystem)
 - [Example: Passport Application via NDX](#example-passport-application-via-ndx)
 - [Member Organizations](#member-organizations)
 - [Security & Privacy](#security--privacy)
@@ -68,7 +68,7 @@ Traditionally, DIE would need to:
 
 This creates a tangled web of point-to-point connections. With just 3 departments, there are already 2 integrations to manage. As more departments join (Motor Traffic, Health, Education), the complexity grows exponentially: **N × (N-1) / 2** integration points.
 
-### The OpenDIF Way: Federated Data Exchange with Consent
+### The OpenNDX Way: Federated Data Exchange with Consent
 
 As a **registered application in NDX**, the DIE Passport Application can query user-specific data from multiple providers through a single endpoint:
 
@@ -123,7 +123,7 @@ The guide covers:
 
 ## 🚀 Ready to Try It?
 
-If you're excited to see OpenDIF Farajaland in action, head over to our **[Setup Guide](SETUP.md)** to get started in minutes!
+If you're excited to see OpenNDX Farajaland in action, head over to our **[Setup Guide](SETUP.md)** to get started in minutes!
 
 The setup guide will walk you through:
 - Installing prerequisites
@@ -150,13 +150,13 @@ The architecture guide covers:
 - Deployment architectures (Local, Kubernetes, Docker Swarm, VM-based)
 - Scalability and performance optimization strategies
 
-**Quick Overview**: OpenDIF Farajaland uses a federated architecture where data stays with providers, queries are orchestrated by NDX, and citizen consent is enforced before any data access.
+**Quick Overview**: OpenNDX Farajaland uses a federated architecture where data stays with providers, queries are orchestrated by NDX, and citizen consent is enforced before any data access.
 
 ---
 
 ## Member Organizations
 
-This section details the member organizations participating in the OpenDIF Farajaland ecosystem, including both data providers and data consumers.
+This section details the member organizations participating in the OpenNDX Farajaland ecosystem, including both data providers and data consumers.
 
 ### Data Providers
 
@@ -287,6 +287,6 @@ Policy Decision Point (PDP) enforces:
 
 ---
 
-**Built with OpenDIF** | **Powering Organizational Digital Transformation**
+**Built with OpenNDX** | **Powering Organizational Digital Transformation**
 
 For questions or feedback, please open an issue or reach out to the maintainers.

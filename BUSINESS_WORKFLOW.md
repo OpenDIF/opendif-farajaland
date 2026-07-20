@@ -1,6 +1,6 @@
-# OpenDIF Farajaland - Business Workflow
+# OpenNDX Farajaland – Business Workflow
 
-This document provides a detailed walkthrough of the complete business workflow for Nayana's passport application, demonstrating how OpenDIF Farajaland's NDX facilitates citizen-centric data exchange with consent.
+This document provides a detailed walkthrough of the complete business workflow for Nayana's passport application, demonstrating how Farajaland's NDX facilitates citizen-centric data exchange with consent.
 
 ## Overview
 

@@ -109,7 +109,7 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-print_info "Starting OpenDIF Farajaland - All Services"
+print_info "Starting OpenNDX Farajaland - All Services"
 print_info "==========================================="
 echo ""
 
