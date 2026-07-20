@@ -1,3 +1,5 @@
+import json
+import os
 from dataclasses import dataclass
 from datetime import date
 import strawberry
@@ -66,192 +68,75 @@ class PersonData:
     informant: Informant
 
 
-mock_data = {
-    "birth": [
-        PersonData(
-            id=1,
-            br_no="BR2025001",
-            district="Colombo",
-            division="Colombo North",
-            birth_date=date(2020, 5, 12),
-            birth_place="Colombo General Hospital",
-            name="Nuwan Fernando",
-            sex="Male",
-            nic=strawberry.ID("nayana@opensource.lk"),
-            are_parents_married=True,
-            is_grandfather_born_in_sri_lanka=True,
-            father=Father(
-                name="Sunil Fernando",
-                nic="710123456V",
-                birth_date=date(1985, 8, 21),
-                birth_place="Colombo",
-                race="Sinhala"
-            ),
-            mother=Mother(
-                name="Kamala Fernando",
-                nic="790987654V",
-                birth_date=date(1987, 2, 11),
-                birth_place="Galle",
-                race="Sinhala",
-                age_at_birth=33
-            ),
-            date_of_registration=date(2020, 5, 15),
-            registrar_signature="R. Silva",
-            informant=Informant(
-                signature="Sunil Fernando",
-                full_name="Sunil Fernando",
-                residence="12 Galle Rd, Colombo",
-                relationship_to_baby="Father",
-                nic="710123456V"
-            )
-        ),
-        PersonData(
-            id=2,
-            br_no="BR2025002",
-            district="Galle",
-            division="Galle Urban",
-            birth_date=date(2021, 1, 20),
-            birth_place="Galle General Hospital",
-            name="Nisha Fernando",
-            sex="Female",
-            nic=strawberry.ID("regina@opensource.lk"),
-            are_parents_married=True,
-            is_grandfather_born_in_sri_lanka=False,
-            father=Father(
-                name="Dinesh Fernando",
-                nic="680123456V",
-                birth_date=date(1982, 4, 10),
-                birth_place="Matara",
-                race="Sinhala"
-            ),
-            mother=Mother(
-                name="Shalini Fernando",
-                nic="750987654V",
-                birth_date=date(1985, 12, 5),
-                birth_place="Galle",
-                race="Sinhala",
-                age_at_birth=36
-            ),
-            date_of_registration=date(2021, 1, 22),
-            registrar_signature="M. Jayawardena",
-            informant=Informant(
-                signature="Dinesh Fernando",
-                full_name="Dinesh Fernando",
-                residence="45 Main St, Galle",
-                relationship_to_baby="Father",
-                nic="680123456V"
-            )
-        ),
-        PersonData(
-            id=3,
-            br_no="BR2025003",
-            district="Kandy",
-            division="Kandy Central",
-            birth_date=date(2019, 8, 9),
-            birth_place="Kandy Teaching Hospital",
-            name="Rohan Jayasuriya",
-            sex="Male",
-            nic=strawberry.ID("thanikan@opensource.lk"),
-            are_parents_married=False,
-            is_grandfather_born_in_sri_lanka=True,
-            father=Father(
-                name="Chaminda Jayasuriya",
-                nic="730567890V",
-                birth_date=date(1980, 6, 2),
-                birth_place="Kandy",
-                race="Sinhala"
-            ),
-            mother=Mother(
-                name="Anjali Jayasuriya",
-                nic="760987123V",
-                birth_date=date(1982, 11, 20),
-                birth_place="Nuwara Eliya",
-                race="Tamil",
-                age_at_birth=37
-            ),
-            date_of_registration=date(2019, 8, 12),
-            registrar_signature="P. De Silva",
-            informant=Informant(
-                signature="Anjali Jayasuriya",
-                full_name="Anjali Jayasuriya",
-                residence="23 Temple Rd, Kandy",
-                relationship_to_baby="Mother",
-                nic="760987123V"
-            )
-        ),
-        PersonData(
-            id=4,
-            br_no="BR2025004",
-            district="Galle",
-            division="Galle South",
-            birth_date=date(2020, 1, 15),
-            birth_place="Galle General Hospital",
-            name="Mohamed Ali",
-            sex="Male",
-            nic=strawberry.ID("mohamed@opensource.lk"),
-            are_parents_married=True,
-            is_grandfather_born_in_sri_lanka=True,
-            father=Father(
-                name="Mohamed Ali",
-                nic="680123456V",
-                birth_date=date(1985, 5, 10),
-                birth_place="Galle",
-                race="Sri Lankan Moor"
-            ),
-            mother=Mother(
-                name="Fatima Ali",
-                nic="750987654V",
-                birth_date=date(1988, 8, 20),
-                birth_place="Galle",
-                race="Sri Lankan Moor",
-                age_at_birth=32
-            ),
-            date_of_registration=date(2020, 1, 20),
-            registrar_signature="https://example.com/signatures/680123456V",
-            informant=Informant(
-                signature="https://example.com/signatures/680123456V",
-                full_name="Mohamed Ali",
-                residence="45 Main St, Galle",
-                relationship_to_baby="Father",
-                nic="680123456V"
-            )
-        ),
-        PersonData(
-            id=5,
-            br_no="BR2025005",
-            district="Jaffna",
-            division="Jaffna Central",
-            birth_date=date(2021, 3, 30),
-            birth_place="Jaffna Teaching Hospital",
-            name="Sanjiva Edirisinghe",
-            sex="Male",
-            nic=strawberry.ID("sanjiva@opensource.lk"),
-            are_parents_married=False,
-            is_grandfather_born_in_sri_lanka=False,
-            father=Father(
-                name="Kumar Edirisinghe",
-                nic="720345678V",
-                birth_date=date(1983, 9, 15),
-                birth_place="Jaffna",
-                race="Sinhalese"
-            ),
-            mother=Mother(
-                name="Lakshmi Edirisinghe",
-                nic="770987654V",
-                birth_date=date(1986, 1, 25),
-                birth_place="Jaffna",
-                race="Sinhalese",
-                age_at_birth=35
-            ),
-            date_of_registration=date(2021, 4, 2),
-            registrar_signature="K. Perera",
-            informant=Informant(
-                signature="Lakshmi Edirisinghe",
-                full_name="Lakshmi Edirisinghe",
-                residence="78 Lake Rd, Jaffna",
-                relationship_to_baby="Mother",
-                nic="770987654V"
-            )
-        )
-    ]
-}
+def _build_person(record: dict) -> PersonData:
+    """Construct a PersonData instance from a plain dict (parsed from JSON)."""
+    father = Father(
+        name=record["father"]["name"],
+        nic=record["father"]["nic"],
+        birth_date=date.fromisoformat(record["father"]["birth_date"]),
+        birth_place=record["father"]["birth_place"],
+        race=record["father"]["race"],
+    )
+    mother = Mother(
+        name=record["mother"]["name"],
+        nic=record["mother"]["nic"],
+        birth_date=date.fromisoformat(record["mother"]["birth_date"]),
+        birth_place=record["mother"]["birth_place"],
+        race=record["mother"]["race"],
+        age_at_birth=record["mother"]["age_at_birth"],
+    )
+    informant = Informant(
+        signature=record["informant"]["signature"],
+        full_name=record["informant"]["full_name"],
+        residence=record["informant"]["residence"],
+        relationship_to_baby=record["informant"]["relationship_to_baby"],
+        nic=record["informant"]["nic"],
+    )
+    return PersonData(
+        id=record["id"],
+        br_no=record["br_no"],
+        district=record["district"],
+        division=record["division"],
+        birth_date=date.fromisoformat(record["birth_date"]),
+        birth_place=record["birth_place"],
+        name=record["name"],
+        sex=record["sex"],
+        nic=strawberry.ID(record["nic"]),
+        are_parents_married=record["are_parents_married"],
+        is_grandfather_born_in_sri_lanka=record["is_grandfather_born_in_sri_lanka"],
+        father=father,
+        mother=mother,
+        date_of_registration=date.fromisoformat(record["date_of_registration"]),
+        registrar_signature=record["registrar_signature"],
+        informant=informant,
+    )
+
+
+_cached_data = None
+_cached_mtime = 0.0
+
+
+def load_mock_data() -> dict:
+    """Load mock birth records from mock_data.json located beside this module.
+
+    The file is re-read and re-parsed only when its modification time changes,
+    so edits to mock_data.json take effect without restarting the service while
+    avoiding redundant I/O and object construction on every request. On a read
+    or parse error the last successfully loaded data is served if available.
+    """
+    global _cached_data, _cached_mtime
+    data_path = os.path.join(os.path.dirname(__file__), "mock_data.json")
+    try:
+        mtime = os.path.getmtime(data_path)
+        if _cached_data is None or mtime > _cached_mtime:
+            with open(data_path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            _cached_data = {
+                "birth": [_build_person(record) for record in raw["birth"]],
+            }
+            _cached_mtime = mtime
+    except Exception:
+        if _cached_data is not None:
+            return _cached_data
+        raise
+    return _cached_data

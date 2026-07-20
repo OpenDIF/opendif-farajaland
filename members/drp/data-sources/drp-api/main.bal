@@ -1,4 +1,5 @@
 import ballerina/http;
+import ballerina/io;
 import ballerina/log;
 
 // --- Enum Definitions ---
@@ -73,69 +74,19 @@ type PersonData record {|
 |};
 
 // --- Mock Data Store ---
-// This is an in-memory table that simulates a database for the mock API.
-isolated final table<PersonData> key(nic) mockPersonDataTable = table [
-    {
-        nic: "nayana@opensource.lk",
-        fullName: "Nuwan Fernando",
-        otherNames: "Nuwan",
-        sex: MALE,
-        dateOfBirth: "1995-12-01",
-        permanentAddress: "105 Bauddhaloka Mawatha, Colombo 00400",
-        profession: "Software Engineer",
-        photo: "https://example.com/photo.jpg"
-    },
-    {
-        nic: "mohamed@opensource.lk",
-        fullName: "Mohamed Ali",
-        otherNames: "Mohamed",
-        sex: MALE,
-        dateOfBirth: "1995-12-01",
-        permanentAddress: "10 Sinha Mawatha, Colombo 00400",
-        profession: "Pilot",
-        photo: "https://example.com/photo.jpg"
-    },
-    {
-        nic: "regina@opensource.lk",
-        fullName: "Regina George",
-        otherNames: "Regina",
-        sex: FEMALE,
-        dateOfBirth: "1995-12-01",
-        permanentAddress: "1034 Sinha Mawatha, Colombo 00400",
-        profession: "Army Commander",
-        photo: "https://example.com/photo.jpg"
-    },
-    {
-        nic: "thanikan@opensource.lk",
-        fullName: "Thanikan Jayasuriya",
-        otherNames: "Thanikan",
-        sex: MALE,
-        dateOfBirth: "1995-12-01",
-        permanentAddress: "1034 Sinha Mawatha, Colombo 00400",
-        profession: "Civil Engineer",
-        photo: "https://example.com/photo.jpg"
-    },
-    {
-        nic: "sanjiva@opensource.lk",
-        fullName: "Sanjiva Edirisinghe",
-        otherNames: "Sanjiva",
-        sex: MALE,
-        dateOfBirth: "1995-12-01",
-        permanentAddress: "14 Anuruddha Mawatha, Colombo 00400",
-        profession: "CEO of OSW2",
-        photo: "https://example.com/photo.jpg"
-    },
-    {
-        nic: "thushara@opensource.lk",
-        fullName: "Thushara Perera",
-        otherNames: "Thushara",
-        sex: MALE,
-        dateOfBirth: "1995-12-01",
-        permanentAddress: "14 Araliya Mawatha, Wattala",
-        profession: "Politician",
-        photo: "https://example.com/photo.jpg"
-    }
-];
+// The data lives in an external `mock_data.json` file so it can be edited
+// without touching the code. The path is configurable to support different
+// deployment layouts. The file is read fresh on every request (rather than
+// cached in memory) so edits to the JSON take effect without a restart.
+configurable string MOCK_DATA_PATH = "mock_data.json";
+
+// Reads the mock person records from the JSON file and builds a keyed table.
+isolated function loadMockPersonData() returns table<PersonData> key(nic)|error {
+    json data = check io:fileReadJson(MOCK_DATA_PATH);
+    PersonData[] persons = check data.cloneWithType();
+    return table key(nic) from PersonData person in persons
+        select person;
+}
 
 // --- Mock HTTP Service ---
 // This service simulates the actual DRP backend API.
@@ -151,16 +102,19 @@ isolated service / on new http:Listener(PORT) {
             return http:UNAUTHORIZED;
         }
         log:printInfo("Mock DRP API: Request received for person", nic = nic);
-        lock {
-            // check whether person exists
-            if (!mockPersonDataTable.hasKey(nic)) {
-                log:printWarn("Mock DRP API: Person not found", nic = nic);
-                return http:NOT_FOUND;
-            }
 
-            PersonData person = mockPersonDataTable.get(nic);
-            log:printInfo("Mock DRP API: Found person, returning data.", nic = nic);
-            return person.clone();
+        // Read the data fresh from disk on every request so edits to
+        // mock_data.json are picked up without restarting the service.
+        table<PersonData> key(nic) mockPersonDataTable = check loadMockPersonData();
+
+        // check whether person exists
+        if (!mockPersonDataTable.hasKey(nic)) {
+            log:printWarn("Mock DRP API: Person not found", nic = nic);
+            return http:NOT_FOUND;
         }
+
+        PersonData person = mockPersonDataTable.get(nic);
+        log:printInfo("Mock DRP API: Found person, returning data.", nic = nic);
+        return person;
     }
 }

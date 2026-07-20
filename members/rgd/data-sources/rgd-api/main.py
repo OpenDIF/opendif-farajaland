@@ -7,7 +7,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from dotenv import load_dotenv
 
 # SQLAlchemy imports for table creation
-from mock_data import Father, Informant, Mother, mock_data
+from mock_data import Father, Informant, Mother, load_mock_data
 from pydantic import BaseModel
 from datetime import date
 from contextlib import asynccontextmanager
@@ -45,8 +45,9 @@ class Query:
         # Optional: Add audit logging with client_id
         print(f"Client {client_id} requested NIC: {nic}")
 
-        # Get Data From Mock Data
-        for data in mock_data['birth']:
+        # Get Data From Mock Data — read fresh from disk on every request so
+        # edits to mock_data.json are picked up without restarting the service.
+        for data in load_mock_data()['birth']:
             if data.nic == str(nic):
                 return data
         return None

@@ -1,0 +1,189 @@
+{
+  "birth": [
+    {
+      "id": 1,
+      "br_no": "BR2025001",
+      "district": "Colombo",
+      "division": "Colombo North",
+      "birth_date": "2020-05-12",
+      "birth_place": "Colombo General Hospital",
+      "name": "Nuwan Fernando",
+      "sex": "Male",
+      "nic": "nayana@opensource.lk",
+      "are_parents_married": true,
+      "is_grandfather_born_in_sri_lanka": true,
+      "father": {
+        "name": "Sunil Fernando",
+        "nic": "710123456V",
+        "birth_date": "1985-08-21",
+        "birth_place": "Colombo",
+        "race": "Sinhala"
+      },
+      "mother": {
+        "name": "Kamala Fernando",
+        "nic": "790987654V",
+        "birth_date": "1987-02-11",
+        "birth_place": "Galle",
+        "race": "Sinhala",
+        "age_at_birth": 33
+      },
+      "date_of_registration": "2020-05-15",
+      "registrar_signature": "R. Silva",
+      "informant": {
+        "signature": "Sunil Fernando",
+        "full_name": "Sunil Fernando",
+        "residence": "12 Galle Rd, Colombo",
+        "relationship_to_baby": "Father",
+        "nic": "710123456V"
+      }
+    },
+    {
+      "id": 2,
+      "br_no": "BR2025002",
+      "district": "Galle",
+      "division": "Galle Urban",
+      "birth_date": "2021-01-20",
+      "birth_place": "Galle General Hospital",
+      "name": "Nisha Fernando",
+      "sex": "Female",
+      "nic": "regina@opensource.lk",
+      "are_parents_married": true,
+      "is_grandfather_born_in_sri_lanka": false,
+      "father": {
+        "name": "Dinesh Fernando",
+        "nic": "680123456V",
+        "birth_date": "1982-04-10",
+        "birth_place": "Matara",
+        "race": "Sinhala"
+      },
+      "mother": {
+        "name": "Shalini Fernando",
+        "nic": "750987654V",
+        "birth_date": "1985-12-05",
+        "birth_place": "Galle",
+        "race": "Sinhala",
+        "age_at_birth": 36
+      },
+      "date_of_registration": "2021-01-22",
+      "registrar_signature": "M. Jayawardena",
+      "informant": {
+        "signature": "Dinesh Fernando",
+        "full_name": "Dinesh Fernando",
+        "residence": "45 Main St, Galle",
+        "relationship_to_baby": "Father",
+        "nic": "680123456V"
+      }
+    },
+    {
+      "id": 3,
+      "br_no": "BR2025003",
+      "district": "Kandy",
+      "division": "Kandy Central",
+      "birth_date": "2019-08-09",
+      "birth_place": "Kandy Teaching Hospital",
+      "name": "Rohan Jayasuriya",
+      "sex": "Male",
+      "nic": "thanikan@opensource.lk",
+      "are_parents_married": false,
+      "is_grandfather_born_in_sri_lanka": true,
+      "father": {
+        "name": "Chaminda Jayasuriya",
+        "nic": "730567890V",
+        "birth_date": "1980-06-02",
+        "birth_place": "Kandy",
+        "race": "Sinhala"
+      },
+      "mother": {
+        "name": "Anjali Jayasuriya",
+        "nic": "760987123V",
+        "birth_date": "1982-11-20",
+        "birth_place": "Nuwara Eliya",
+        "race": "Tamil",
+        "age_at_birth": 37
+      },
+      "date_of_registration": "2019-08-12",
+      "registrar_signature": "P. De Silva",
+      "informant": {
+        "signature": "Anjali Jayasuriya",
+        "full_name": "Anjali Jayasuriya",
+        "residence": "23 Temple Rd, Kandy",
+        "relationship_to_baby": "Mother",
+        "nic": "760987123V"
+      }
+    },
+    {
+      "id": 4,
+      "br_no": "BR2025004",
+      "district": "Galle",
+      "division": "Galle South",
+      "birth_date": "2020-01-15",
+      "birth_place": "Galle General Hospital",
+      "name": "Mohamed Ali",
+      "sex": "Male",
+      "nic": "mohamed@opensource.lk",
+      "are_parents_married": true,
+      "is_grandfather_born_in_sri_lanka": true,
+      "father": {
+        "name": "Mohamed Ali",
+        "nic": "680123456V",
+        "birth_date": "1985-05-10",
+        "birth_place": "Galle",
+        "race": "Sri Lankan Moor"
+      },
+      "mother": {
+        "name": "Fatima Ali",
+        "nic": "750987654V",
+        "birth_date": "1988-08-20",
+        "birth_place": "Galle",
+        "race": "Sri Lankan Moor",
+        "age_at_birth": 32
+      },
+      "date_of_registration": "2020-01-20",
+      "registrar_signature": "https://example.com/signatures/680123456V",
+      "informant": {
+        "signature": "https://example.com/signatures/680123456V",
+        "full_name": "Mohamed Ali",
+        "residence": "45 Main St, Galle",
+        "relationship_to_baby": "Father",
+        "nic": "680123456V"
+      }
+    },
+    {
+      "id": 5,
+      "br_no": "BR2025005",
+      "district": "Jaffna",
+      "division": "Jaffna Central",
+      "birth_date": "2021-03-30",
+      "birth_place": "Jaffna Teaching Hospital",
+      "name": "Sanjiva Edirisinghe",
+      "sex": "Male",
+      "nic": "sanjiva@opensource.lk",
+      "are_parents_married": false,
+      "is_grandfather_born_in_sri_lanka": false,
+      "father": {
+        "name": "Kumar Edirisinghe",
+        "nic": "720345678V",
+        "birth_date": "1983-09-15",
+        "birth_place": "Jaffna",
+        "race": "Sinhalese"
+      },
+      "mother": {
+        "name": "Lakshmi Edirisinghe",
+        "nic": "770987654V",
+        "birth_date": "1986-01-25",
+        "birth_place": "Jaffna",
+        "race": "Sinhalese",
+        "age_at_birth": 35
+      },
+      "date_of_registration": "2021-04-02",
+      "registrar_signature": "K. Perera",
+      "informant": {
+        "signature": "Lakshmi Edirisinghe",
+        "full_name": "Lakshmi Edirisinghe",
+        "residence": "78 Lake Rd, Jaffna",
+        "relationship_to_baby": "Mother",
+        "nic": "770987654V"
+      }
+    }
+  ]
+}
