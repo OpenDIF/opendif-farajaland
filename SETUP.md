@@ -298,7 +298,7 @@ ThunderID container:
 
 ```bash
 # Extract ThunderID's signing public key (PEM)
-docker cp "$(cd ndx && docker-compose ps -q thunderid):/opt/thunderid/config/certs/signing.cert" /tmp/signing.cert
+docker cp "$([ -d ndx ] && cd ndx; docker-compose ps -q thunderid):/opt/thunderid/config/certs/signing.cert" /tmp/signing.cert
 PUBLIC_KEY=$(openssl x509 -in /tmp/signing.cert -pubkey -noout)
 
 # Register the OE route (jq inlines the PEM with correct JSON escaping)

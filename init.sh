@@ -449,12 +449,20 @@ if [ -z "$THUNDERID_CID" ]; then
     print_error "Could not find the thunderid container to extract its signing key"
     exit 1
 fi
+if ! command -v openssl >/dev/null 2>&1; then
+    print_error "'openssl' is not installed on the host; it is required to extract the signing public key"
+    exit 1
+fi
 SIGNING_CERT_FILE="$(mktemp)"
-docker cp "${THUNDERID_CID}:/opt/thunderid/config/certs/signing.cert" "$SIGNING_CERT_FILE" >/dev/null 2>&1
+if ! docker cp "${THUNDERID_CID}:/opt/thunderid/config/certs/signing.cert" "$SIGNING_CERT_FILE" >/dev/null 2>&1; then
+    print_error "Failed to copy the signing certificate from the thunderid container"
+    rm -f "$SIGNING_CERT_FILE"
+    exit 1
+fi
 IDP_PUBLIC_KEY=$(openssl x509 -in "$SIGNING_CERT_FILE" -pubkey -noout 2>/dev/null)
 rm -f "$SIGNING_CERT_FILE"
 if [ -z "$IDP_PUBLIC_KEY" ]; then
-    print_error "Failed to extract ThunderID signing public key (is openssl installed?)"
+    print_error "Failed to extract the ThunderID signing public key from the certificate"
     exit 1
 fi
 print_success "Extracted ThunderID signing public key"
@@ -502,6 +510,7 @@ CE_ROUTE_CODE=$(jq -n \
   --arg client_id "$CLIENT_ID" \
   --arg discovery "https://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
   --arg issuer "$ISSUER_URL" \
+  --arg cors_origin "${CONSENT_PORTAL_URL:-http://localhost:5173}" \
   '{
     uri: "/api/v1/consents/*",
     methods: ["GET", "PUT", "OPTIONS"],
@@ -519,7 +528,7 @@ CE_ROUTE_CODE=$(jq -n \
         access_token_in_authorization_header: true
       },
       "cors": {
-        allow_origins: "http://localhost:5173",
+        allow_origins: $cors_origin,
         allow_headers: "*",
         allow_methods: "GET,PUT,OPTIONS"
       }
