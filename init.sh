@@ -122,73 +122,18 @@ fi
 echo ""
 
 
-# Detect machine IP address for Rancher Desktop compatibility
-detect_host_ip() {
-    local ip=""
-
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS - try different interfaces
-        for interface in en0 en1; do
-            ip=$(ipconfig getifaddr "$interface" 2>/dev/null)
-            # Validate IPv4 format
-            if [ -n "$ip" ] && [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-                echo "$ip"
-                return 0
-            fi
-        done
-    elif [[ "$OSTYPE" == msys* ]] || [[ "$OSTYPE" == cygwin* ]] || [[ "$OSTYPE" == win32 ]]; then
-        # Windows (Git Bash / MSYS / Cygwin) - `ipconfig` output ordering isn't
-        # stable (virtual adapters like Hyper-V/WSL can list before the real
-        # LAN adapter), so parsing it is unreliable. Docker Desktop registers
-        # host.docker.internal in the Windows hosts file too, so it resolves
-        # correctly from both the host shell and from inside containers.
-        echo "host.docker.internal"
-        return 0
-    else
-        # Linux - get first IPv4 address (filter out IPv6)
-        ip=$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/) {print $i; exit}}')
-        if [ -n "$ip" ]; then
-            echo "$ip"
-            return 0
-        fi
-    fi
-
-    # Fallback: Try Docker gateway
-    if command -v docker &> /dev/null && docker info &> /dev/null; then
-        ip=$(docker run --rm --net host alpine ip route 2>/dev/null | awk '/default/ {print $3}' | head -1)
-        if [ -n "$ip" ] && [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            echo "$ip"
-            return 0
-        fi
-    fi
-
-    return 1
-}
-
-print_info "Detecting host machine IP address..."
-HOST_IP="${HOST_IP:-$(detect_host_ip)}"
-
-if [ -z "$HOST_IP" ] || [ "$HOST_IP" = "null" ]; then
-    print_error "Failed to detect host IP address"
-    print_info "For Rancher Desktop, set HOST_IP manually:"
-    print_info "  export HOST_IP=\$(hostname -I | awk '{print \$1}')"
-    print_info "  # Or use: export HOST_IP=host.docker.internal"
-    exit 1
-fi
-
-# Validate IP format
-if [[ ! $HOST_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [ "$HOST_IP" != "host.docker.internal" ]; then
-    print_error "Invalid HOST_IP format: $HOST_IP"
-    exit 1
-fi
-
-print_success "Detected the Host Machine IP: $HOST_IP"
-export HOST_IP
-
-# Initialize Variables
-THUNDERID_URL=${HOST_IP}:${IDP_PORT:-8090}
-ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
+# Initialize Variables. init.sh runs on the host, so it reaches ThunderID at the
+# published localhost:8090 port - no /etc/hosts entry and no host-IP detection are
+# needed for this local-only stack.
 export IDP_PORT="${IDP_PORT:-8090}"
+THUNDERID_URL=localhost:${IDP_PORT}
+ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
+
+# The OIDC issuer is https://localhost:8090 (set in ndx/.env). The browser reaches
+# it directly and ThunderID's dev cert is CN=localhost, so the cert matches, and
+# consent-engine validates the token `iss` against this string. JWKS is fetched
+# server-side by consent-engine over Docker DNS (thunderid:8090).
+ISSUER_URL="https://localhost:${IDP_PORT}"
 
 # Start NDX infrastructure services
 print_info "Starting NDX infrastructure services (docker-compose)..."
@@ -304,28 +249,27 @@ thunderid_api_call() {
 }
 
 # Configure server-wide CORS allowed origins. ThunderID 0.48 removed the static
-# `cors` block from deployment.yaml; CORS is now a server-config section. The
-# browser-facing apps call /oauth2/token cross-origin - the Console served from
-# https://localhost:8090 (and https://thunderid:8090) and the Consent Portal
-# (CONSENT_PORTAL_APP) from http://localhost:5173 - so their origins must be
-# allowed here. This sets the writable layer (PUT /server-config/cors), which is
-# DB-backed and read by the running server's dynamic CORS matcher.
+# `cors` block from deployment.yaml; CORS is now a server-config section. Only the
+# Consent Portal (CONSENT_PORTAL_APP, http://localhost:5173) calls /oauth2/token
+# cross-origin, so it is the only origin that needs allowing. The ThunderID Console
+# is served from the issuer itself (https://localhost:8090), so its /oauth2/token
+# calls are same-origin and need no CORS entry. This sets the writable layer
+# (PUT /server-config/cors), which is DB-backed and read by the running server's
+# dynamic CORS matcher.
 configure_cors() {
     local CONSENT_PORTAL_ORIGIN="${CONSENT_PORTAL_URL:-http://localhost:5173}"
     local RESPONSE HTTP_CODE CORS_PAYLOAD
     read -r -d '' CORS_PAYLOAD <<JSON || true
 {
     "allowedOrigins": [
-        "${CONSENT_PORTAL_ORIGIN}",
-        "https://localhost:${IDP_PORT}",
-        "https://thunderid:${IDP_PORT}"
+        "${CONSENT_PORTAL_ORIGIN}"
     ]
 }
 JSON
     RESPONSE=$(thunderid_api_call PUT "/server-config/cors" "$CORS_PAYLOAD")
     HTTP_CODE="${RESPONSE: -3}"
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
-        print_success "Configured CORS allowed origins (Console + Consent Portal)"
+        print_success "Configured CORS allowed origins (Consent Portal)"
     else
         print_warning "Failed to configure CORS allowed origins (HTTP $HTTP_CODE) - browser apps may hit CORS errors"
     fi
@@ -478,101 +422,126 @@ fi
 echo ""
 
 # Step 2: Create the API Gateway M2M application.
-# No role/scope grant is needed on this app: the apisix routes below run in
-# bearer_only + use_jwks mode, so its client_id/client_secret only satisfy the
-# openid-connect plugin's config schema, not an actual token exchange.
+# The apisix routes below validate bearer tokens by verifying their RS256 signature
+# locally against ThunderID's signing public key (extracted below). The app's
+# client_id only satisfies the openid-connect plugin's config schema (client_id is
+# a required field); its secret is not used, since local verification needs no
+# token exchange or introspection call.
 print_info "Creating M2M application for API Gateway..."
 GATEWAY_CLIENT_ID="ndx-api-gateway"
 GATEWAY_CLIENT_SECRET="${GATEWAY_CLIENT_SECRET:-$(openssl rand -hex 16)}"
 create_m2m_application "NDX_API_GATEWAY" "M2M client used by APISIX to validate bearer tokens" \
     "$GATEWAY_CLIENT_ID" "$GATEWAY_CLIENT_SECRET" "$DEFAULT_OU_ID"
 CLIENT_ID="$GATEWAY_CLIENT_ID"
-CLIENT_SECRET="$GATEWAY_CLIENT_SECRET"
 print_info "API Gateway Client ID: $CLIENT_ID"
 echo ""
 
+# Extract ThunderID's RS256 signing public key so APISIX can verify token
+# signatures locally (public_key mode). We validate locally rather than via JWKS
+# because the issuer is https://localhost:8090: the JWKS URL advertised in the
+# discovery document would be https://localhost:8090/oauth2/jwks, which the APISIX
+# container cannot reach (there, localhost means APISIX itself). Local verification
+# needs no network call to the IdP, so the issuer host is only ever compared as a
+# string (claim_validator.issuer.valid_issuers), never dereferenced.
+print_info "Extracting ThunderID signing public key for APISIX token validation..."
+THUNDERID_CID=$(docker-compose ps -q thunderid)
+if [ -z "$THUNDERID_CID" ]; then
+    print_error "Could not find the thunderid container to extract its signing key"
+    exit 1
+fi
+if ! command -v openssl >/dev/null 2>&1; then
+    print_error "'openssl' is not installed on the host; it is required to extract the signing public key"
+    exit 1
+fi
+SIGNING_CERT_FILE="$(mktemp)"
+if ! docker cp "${THUNDERID_CID}:/opt/thunderid/config/certs/signing.cert" "$SIGNING_CERT_FILE" >/dev/null 2>&1; then
+    print_error "Failed to copy the signing certificate from the thunderid container"
+    rm -f "$SIGNING_CERT_FILE"
+    exit 1
+fi
+IDP_PUBLIC_KEY=$(openssl x509 -in "$SIGNING_CERT_FILE" -pubkey -noout 2>/dev/null)
+rm -f "$SIGNING_CERT_FILE"
+if [ -z "$IDP_PUBLIC_KEY" ]; then
+    print_error "Failed to extract the ThunderID signing public key from the certificate"
+    exit 1
+fi
+print_success "Extracted ThunderID signing public key"
+echo ""
 
 # Register Orchestration Engine Routes
 print_info "Exposing OE Endpoints Publicly with OpenID Connect Authentication"
-curl --location --request PUT http://localhost:9180/apisix/admin/routes \
-  --header "Content-Type: application/json" \
-  --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
-  --data @- <<EOF
-  {
-    "uri": "/public/*",
-    "methods": ["GET", "POST"],
-    "upstream": {
-      "type": "roundrobin",
-      "nodes": {
-        "orchestration-engine:4000": 1
-      }
-    },
-    "plugins": {
+OE_ROUTE_CODE=$(jq -n \
+  --arg pk "$IDP_PUBLIC_KEY" \
+  --arg client_id "$CLIENT_ID" \
+  --arg discovery "https://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
+  --arg issuer "$ISSUER_URL" \
+  '{
+    uri: "/public/*",
+    methods: ["GET", "POST"],
+    upstream: { type: "roundrobin", nodes: { "orchestration-engine:4000": 1 } },
+    plugins: {
       "openid-connect": {
-        "discovery": "https://thunderid:${IDP_PORT}/.well-known/openid-configuration",
-        "bearer_only": true,
-        "token_signing_alg_values_expected": "RS256",
-        "set_userinfo_header": true,
-        "client_id": "$CLIENT_ID",
-        "client_secret": "$CLIENT_SECRET",
-        "use_jwks": true,
-        "ssl_verify": false
+        client_id: $client_id,
+        discovery: $discovery,
+        bearer_only: true,
+        public_key: $pk,
+        token_signing_alg_values_expected: "RS256",
+        claim_validator: { issuer: { valid_issuers: [$issuer] } },
+        set_userinfo_header: true,
+        ssl_verify: false
       }
     },
-    "id": "oe-endpoint"
-  }
-EOF
+    id: "oe-endpoint"
+  }' | curl -s -o /dev/null -w "%{http_code}" \
+    --location --request PUT http://localhost:9180/apisix/admin/routes \
+    --header "Content-Type: application/json" \
+    --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
+    --data @-)
 
-if [ $? -ne 0 ]; then
-    print_error "Failed to register OE public routes"
+if [ "$OE_ROUTE_CODE" != "200" ] && [ "$OE_ROUTE_CODE" != "201" ]; then
+    print_error "Failed to register OE public routes (HTTP $OE_ROUTE_CODE)"
     exit 1
 fi
 
 print_info "Exposing Required Consent Engine Endpoints Publicly with OpenID Connect Authentication"
 
-curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
---header 'Content-Type: application/json' \
---header 'X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo' \
---data @- <<EOF
-{
-    "uri": "/api/v1/consents/*",
-    "methods": [
-        "GET",
-        "PUT",
-        "OPTIONS"
-    ],
-    "upstream": {
-        "type": "roundrobin",
-        "nodes": {
-            "consent-engine:8081": 1
-        }
+CE_ROUTE_CODE=$(jq -n \
+  --arg pk "$IDP_PUBLIC_KEY" \
+  --arg client_id "$CLIENT_ID" \
+  --arg discovery "https://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
+  --arg issuer "$ISSUER_URL" \
+  --arg cors_origin "${CONSENT_PORTAL_URL:-http://localhost:5173}" \
+  '{
+    uri: "/api/v1/consents/*",
+    methods: ["GET", "PUT", "OPTIONS"],
+    upstream: { type: "roundrobin", nodes: { "consent-engine:8081": 1 } },
+    plugins: {
+      "openid-connect": {
+        client_id: $client_id,
+        discovery: $discovery,
+        bearer_only: true,
+        public_key: $pk,
+        token_signing_alg_values_expected: "RS256",
+        claim_validator: { issuer: { valid_issuers: [$issuer] } },
+        set_userinfo_header: true,
+        ssl_verify: false,
+        access_token_in_authorization_header: true
+      },
+      "cors": {
+        allow_origins: $cors_origin,
+        allow_headers: "*",
+        allow_methods: "GET,PUT,OPTIONS"
+      }
     },
-    "plugins": {
-        "openid-connect": {
-            "discovery": "https://thunderid:${IDP_PORT}/.well-known/openid-configuration",
-            "bearer_only": true,
-            "token_signing_alg_values_expected": "RS256",
-            "set_userinfo_header": true,
-            "client_id": "$CLIENT_ID",
-            "client_secret": "$CLIENT_SECRET",
-            "use_jwks": true,
-            "ssl_verify": false,
-            "access_token_in_authorization_header": true
-        },
-        "cors": {
-            "allow_origins": "http://localhost:5173",
-            "allow_headers": "*",
-            "allow_methods": "GET,PUT,OPTIONS"
-        }
-    },
-    "id": "consent-endpoint"
-}
-EOF
+    id: "consent-endpoint"
+  }' | curl -s -o /dev/null -w "%{http_code}" \
+    --location --request PUT http://localhost:9180/apisix/admin/routes \
+    --header "Content-Type: application/json" \
+    --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
+    --data @-)
 
-
-
-if [ $? -ne 0 ]; then
-    print_error "Failed to register consent engine routes"
+if [ "$CE_ROUTE_CODE" != "200" ] && [ "$CE_ROUTE_CODE" != "201" ]; then
+    print_error "Failed to register consent engine routes (HTTP $CE_ROUTE_CODE)"
     exit 1
 fi
 
