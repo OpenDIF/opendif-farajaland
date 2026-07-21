@@ -85,6 +85,74 @@ print_step() {
     echo -e "${CYAN}[STEP]${NC} $1"
 }
 
+# Load env variables from ndx/.env if it exists
+if [ -f "${SCRIPT_DIR}/../ndx/.env" ]; then
+    print_info "Loading environment variables from ndx/.env..."
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Strip carriage returns for Windows compatibility
+        line="${line//$'\r'/}"
+        # Ignore comments and empty lines
+        if [[ ! "$line" =~ ^[[:space:]]*# ]] && [[ -n "$line" ]]; then
+            # Only export valid key=value assignments
+            if [[ "$line" =~ ^([A-Za-z0-9_]+)=(.*)$ ]]; then
+                var_name="${BASH_REMATCH[1]}"
+                var_val="${BASH_REMATCH[2]}"
+                # Strip trailing comments starting with space + #
+                if [[ "$var_val" =~ ^(.*[^[:space:]])[[:space:]]+#.*$ ]]; then
+                    var_val="${BASH_REMATCH[1]}"
+                elif [[ "$var_val" =~ ^[[:space:]]*#.*$ ]]; then
+                    var_val=""
+                fi
+                # Strip surrounding quotes if present
+                var_val="${var_val#\"}"
+                var_val="${var_val%\"}"
+                var_val="${var_val#\'}"
+                var_val="${var_val%\'}"
+                # Trim trailing whitespace
+                var_val="${var_val%"${var_val##*[![:space:]]}"}"
+                # Only set if not already present in the environment
+                if [ -z "${!var_name+x}" ]; then
+                    export "$var_name=$var_val"
+                fi
+            fi
+        fi
+    done < "${SCRIPT_DIR}/../ndx/.env"
+fi
+
+# Default M2M credentials for the Passport Application (set by init.sh or ndx/.env)
+M2M_CLIENT_ID="${M2M_CLIENT_ID:-passport-application}"
+M2M_CLIENT_SECRET="${M2M_CLIENT_SECRET:-${PASSPORT_CLIENT_SECRET:-1234}}"
+
+# Detect Host IP if not provided
+if [ -z "$HOST_IP" ]; then
+    detect_host_ip() {
+        local ip=""
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            for interface in en0 en1; do
+                ip=$(ipconfig getifaddr "$interface" 2>/dev/null)
+                if [ -n "$ip" ] && [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                    echo "$ip"
+                    return 0
+                fi
+            done
+        elif [[ "$OSTYPE" == msys* ]] || [[ "$OSTYPE" == cygwin* ]] || [[ "$OSTYPE" == win32 ]]; then
+            echo "host.docker.internal"
+            return 0
+        else
+            ip=$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/) {print $i; exit}}')
+            if [ -n "$ip" ]; then
+                echo "$ip"
+                return 0
+            fi
+        fi
+        echo "localhost"
+    }
+    HOST_IP=$(detect_host_ip)
+    export HOST_IP
+    print_info "Detected Host IP: $HOST_IP"
+fi
+
+
 # Function to check if Docker is installed and running
 check_docker() {
     if ! command -v docker &> /dev/null; then
@@ -301,11 +369,15 @@ run_die() {
     # mean the container itself, and we no longer detect a host IP.
     docker run -d \
         --name "$DIE_CONTAINER" \
+        --network ndx_exchange-network \
         -p 3000:3000 \
         -e "CLIENT_ID=${M2M_CLIENT_ID}" \
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
-        -e "NDX_GRAPHQL_API_URL=http://host.docker.internal:9081/public/graphql" \
-        -e "TOKEN_URL=https://host.docker.internal:${IDP_PORT:-8090}/oauth2/token" \
+        -e "NDX_GRAPHQL_API_URL=http://api-gateway:9081/public/graphql" \
+        -e "TOKEN_URL=https://thunderid:${IDP_PORT:-8090}/oauth2/token" \
+        -e "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+        -e "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" \
+        -e "APP_BASE_URL=${APP_BASE_URL:-http://localhost:3000}" \
         --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
         "$DIE_IMAGE"
@@ -480,19 +552,19 @@ main() {
 
     case "$command" in
         drp)
-            run_drp false
+            run_drp "${2:-false}"
             ;;
         adapter)
-            run_drp_adapter false
+            run_drp_adapter "${2:-false}"
             ;;
         rgd)
-            run_rgd false
+            run_rgd "${2:-false}"
             ;;
         die)
-            run_die false
+            run_die "${2:-false}"
             ;;
         all)
-            run_all false
+            run_all "${2:-true}"
             ;;
         build)
             build_all

@@ -45,6 +45,41 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
+# Load env variables from ndx/.env if it exists
+if [ -f "${NDX_DIR}/.env" ]; then
+    print_info "Loading environment variables from ndx/.env..."
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Strip carriage returns for Windows compatibility
+        line="${line//$'\r'/}"
+        # Ignore comments and empty lines
+        if [[ ! "$line" =~ ^[[:space:]]*# ]] && [[ -n "$line" ]]; then
+            # Only export valid key=value assignments
+            if [[ "$line" =~ ^([A-Za-z0-9_]+)=(.*)$ ]]; then
+                var_name="${BASH_REMATCH[1]}"
+                var_val="${BASH_REMATCH[2]}"
+                # Strip trailing comments starting with space + #
+                if [[ "$var_val" =~ ^(.*[^[:space:]])[[:space:]]+#.*$ ]]; then
+                    var_val="${BASH_REMATCH[1]}"
+                elif [[ "$var_val" =~ ^[[:space:]]*#.*$ ]]; then
+                    var_val=""
+                fi
+                # Strip surrounding quotes if present
+                var_val="${var_val#\"}"
+                var_val="${var_val%\"}"
+                var_val="${var_val#\'}"
+                var_val="${var_val%\'}"
+                # Trim trailing whitespace
+                var_val="${var_val%"${var_val##*[![:space:]]}"}"
+                # Only set if not already present in the environment (allows
+                # overrides via `VAR=val ./init.sh`)
+                if [ -z "${!var_name+x}" ]; then
+                    export "$var_name=$var_val"
+                fi
+            fi
+        fi
+    done < "${NDX_DIR}/.env"
+fi
+
 # Function to log errors with context
 log_error() {
     local line_number=$1
@@ -144,6 +179,12 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
+# Stop existing services and clean volumes if CLEAN_START is true
+if [ "${CLEAN_START:-true}" = "true" ]; then
+    print_info "CLEAN_START is enabled. Cleaning up existing containers and volumes..."
+    docker-compose down -v --remove-orphans &> /dev/null || true
+fi
+
 # Start docker-compose in detached mode
 docker-compose up -d
 
@@ -154,6 +195,8 @@ fi
 
 print_success "NDX infrastructure services started"
 echo ""
+
+
 print_info "Running services:"
 print_info "  - etcd (ports 2379, 2380)"
 print_info "  - API Gateway (ports 9081, 9180)"
@@ -314,7 +357,7 @@ create_m2m_application() {
             "config": {
                 "clientId": "${CLIENT_ID_NEW}",
                 "clientSecret": "${CLIENT_SECRET_NEW}",
-                "grantTypes": ["client_credentials", "refresh_token"],
+                "grantTypes": ["client_credentials", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"],
                 "tokenEndpointAuthMethod": "client_secret_basic",
                 "pkceRequired": false,
                 "publicClient": false,
@@ -364,7 +407,7 @@ create_spa_application() {
             "config": {
                 "clientId": "${CLIENT_ID_NEW}",
                 "redirectUris": ["${REDIRECT_URI}"],
-                "grantTypes": ["authorization_code", "refresh_token"],
+                "grantTypes": ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"],
                 "responseTypes": ["code"],
                 "tokenEndpointAuthMethod": "none",
                 "pkceRequired": true,
@@ -620,6 +663,69 @@ print_info "API Gateway Client ID: $CLIENT_ID"
 print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 echo ""
 
+# Enable token exchange on the Google IDP. ThunderID's declarative bootstrap
+# doesn't accept token_exchange_enabled/trusted_token_audience as IDP
+# properties, so we patch the IDP record in the config database directly
+# and restart ThunderID to pick up the change.
+if [ -n "${GOOGLE_CLIENT_ID}" ]; then
+    print_info "Enabling token exchange for Google IDP..."
+
+    GOOGLE_IDP_ID="01900000-0000-7000-8000-000000000080"
+    IDP_CONTAINER="thunderid-${ENVIRONMENT:-local}"
+
+    # Read current properties, inject token_exchange_enabled + trusted_token_audience
+    CURRENT_PROPS=$(docker exec -i "$IDP_CONTAINER" sqlite3 database/configdb.db \
+        "SELECT properties FROM IDP WHERE id='${GOOGLE_IDP_ID}';" 2>/dev/null || echo "")
+
+    if [ -n "$CURRENT_PROPS" ]; then
+        # Build new properties JSON with token exchange fields added
+        NEW_PROPS=$(echo "$CURRENT_PROPS" | python3 -c "
+import json, sys
+props = json.loads(sys.stdin.read().strip())
+props['token_exchange_enabled'] = {'value': 'true', 'isSecret': False}
+props['trusted_token_audience'] = {'value': '${GOOGLE_CLIENT_ID}', 'isSecret': False}
+props['jwks_endpoint'] = {'value': 'https://www.googleapis.com/oauth2/v3/certs', 'isSecret': False}
+print(json.dumps(props))
+" 2>/dev/null || echo "")
+
+        if [ -n "$NEW_PROPS" ]; then
+            docker exec -i "$IDP_CONTAINER" sqlite3 database/configdb.db \
+                "UPDATE IDP SET properties = '${NEW_PROPS}' WHERE id = '${GOOGLE_IDP_ID}';" 2>/dev/null
+            if [ $? -eq 0 ]; then
+                print_success "Token exchange enabled for Google IDP"
+                # Restart ThunderID so it picks up the updated IDP config
+                print_info "Restarting ThunderID to apply IDP configuration..."
+                docker restart "$IDP_CONTAINER" > /dev/null 2>&1
+
+                # Wait for ThunderID to be healthy again
+                HEALTH_TIMEOUT=30
+                HEALTH_ELAPSED=0
+                while [ $HEALTH_ELAPSED -lt $HEALTH_TIMEOUT ]; do
+                    if curl -k -s -o /dev/null "https://localhost:${IDP_PORT:-8090}/" 2>/dev/null; then
+                        break
+                    fi
+                    sleep 2
+                    HEALTH_ELAPSED=$((HEALTH_ELAPSED + 2))
+                done
+                if [ $HEALTH_ELAPSED -lt $HEALTH_TIMEOUT ]; then
+                    print_success "ThunderID restarted successfully"
+                else
+                    print_warning "ThunderID may still be starting up"
+                fi
+            else
+                print_warning "Failed to update IDP properties in database"
+            fi
+        else
+            print_warning "Failed to build updated IDP properties JSON"
+        fi
+    else
+        print_warning "Google IDP not found in database (skipping token exchange setup)"
+    fi
+else
+    print_info "GOOGLE_CLIENT_ID not set, skipping Google IDP token exchange setup"
+fi
+echo ""
+
 # Create a mock user via ThunderID's User Management API (no SCIM2 equivalent
 # exists in ThunderID - this is its own custom user API, scoped by OU + user
 # type; "Person" is the image-provided default user type).
@@ -633,7 +739,8 @@ USER_RESPONSE=$(thunderid_api_call POST "/users" "$(cat <<EOF
     "password": "${MOCK_USER_PASSWORD:-Abc12#45}",
     "email": "nayana@opensource.lk",
     "given_name": "Nayana",
-    "family_name": "Samaranayake"
+    "family_name": "Samaranayake",
+    "openndx-uid": "${MOCK_USER_EMAIL:-nayana@opensource.lk}"
   }
 }
 EOF
@@ -654,6 +761,44 @@ else
     print_info "Response: $USER_BODY"
 fi
 echo ""
+
+# Create a mock user for Google Federated Login OIDC testing if variables are configured in ndx/.env
+if [ -n "$FED_USER_USERNAME" ] && [ "$FED_USER_USERNAME" != "your-google-username" ] && [ "$FED_USER_EMAIL" != "your-google-email@gmail.com" ]; then
+    print_info "Creating mock federated user '${FED_USER_USERNAME}' for Google Account OIDC linking..."
+    FED_USER_RESPONSE=$(thunderid_api_call POST "/users" "$(cat <<EOF
+{
+  "type": "Person",
+  "ouId": "${DEFAULT_OU_ID}",
+  "attributes": {
+    "username": "${FED_USER_USERNAME}",
+    "password": "${MOCK_USER_PASSWORD:-Abc12#45}",
+    "email": "${FED_USER_EMAIL}",
+    "given_name": "${FED_USER_GIVEN_NAME:-User}",
+    "family_name": "${FED_USER_FAMILY_NAME:-Test}",
+    "openndx-uid": "${FED_USER_EMAIL}"
+  }
+}
+EOF
+)")
+    FED_USER_HTTP_CODE="${FED_USER_RESPONSE: -3}"
+    FED_USER_BODY="${FED_USER_RESPONSE%???}"
+
+    if [ "$FED_USER_HTTP_CODE" = "201" ] || [ "$FED_USER_HTTP_CODE" = "200" ]; then
+        print_success "Federated user '${FED_USER_USERNAME}' created successfully!"
+        print_info "This user will be linked when you sign in with Google (${FED_USER_EMAIL})"
+    elif [ "$FED_USER_HTTP_CODE" = "409" ]; then
+        print_warning "Federated user '${FED_USER_USERNAME}' already exists, skipping"
+    else
+        print_warning "Failed to create federated user '${FED_USER_USERNAME}' (HTTP $FED_USER_HTTP_CODE)"
+        print_info "Response: $FED_USER_BODY"
+    fi
+    echo ""
+else
+    print_info "Skipping federated user creation (FED_USER_USERNAME not configured)"
+    print_info "To test Google federation, set FED_USER_* variables in ndx/.env"
+    print_info "See LOCAL_DEVELOPMENT.md for instructions."
+    echo ""
+fi
 
 # Start member services
 print_info "Starting member data source services..."
@@ -684,17 +829,24 @@ echo ""
 # Prompt user to access the passport application
 echo ""
 print_info "=========================================="
-print_info "Next Step: Test Passport Application"
+print_info "Next Step: Test the Application"
 print_info "=========================================="
 echo ""
-print_info "Please open the passport application in your browser:"
-print_info "  URL: http://localhost:3000"
+print_info "Passport Application:  http://localhost:3000"
+print_info "Consent Portal:        http://localhost:5173"
 echo ""
-print_info "Login with the following credentials:"
+print_info "Basic Login (username/password):"
 print_info "  Username:   nayana"
 print_info "  Password:   Abc12#45"
 echo ""
-print_info "This will allow you to provide consent for the application."
+if [ -n "$GOOGLE_CLIENT_ID" ] && [ "$GOOGLE_CLIENT_ID" != "your-google-client-id.apps.googleusercontent.com" ]; then
+    print_success "Google Federation: Enabled ✓"
+    print_info "  Click 'Sign in with Google' on the Passport App to test"
+else
+    print_warning "Google Federation: Not configured"
+    print_info "  Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in ndx/.env"
+    print_info "  See LOCAL_DEVELOPMENT.md for setup instructions"
+fi
 print_info "=========================================="
 echo ""
 print_warning "Press Ctrl+C to stop all services"

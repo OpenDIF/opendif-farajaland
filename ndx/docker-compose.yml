@@ -68,10 +68,13 @@ services:
       - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-noreply@farajaland.local}
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - IDP_BROWSER_URL=${IDP_BROWSER_URL:-https://thunderid:8090}
     volumes:
       - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database
-      - ./config/thunderid/bootstrap/02-admin-cli.yaml:/opt/thunderid/bootstrap/02-admin-cli.yaml
+      - ./config/thunderid/bootstrap/02-custom-resources.yaml:/opt/thunderid/bootstrap/02-custom-resources.yaml
     restart: "no"
     networks:
       - exchange-network
@@ -103,6 +106,8 @@ services:
       - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-noreply@farajaland.local}
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
+      - IDP_BROWSER_URL=${IDP_BROWSER_URL:-https://thunderid:8090}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     volumes:
       - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database
@@ -223,6 +228,7 @@ services:
       - VITE_SCOPE=openid profile email
       - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
       - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
+
 
   orchestration-engine:
     image: ghcr.io/opendif/opendif-core/orchestration-engine:0.1.0
